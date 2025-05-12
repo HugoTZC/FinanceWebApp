@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { format } from "date-fns"
 import { CalendarIcon, Plus, CreditCardIcon, Landmark } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { creditAPI } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -21,12 +21,20 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
 
-export function AddCreditDialog() {
+export interface AddCreditDialogProps {
+  onSuccess?: () => void;
+}
+
+export function AddCreditDialog({ onSuccess }: AddCreditDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [creditType, setCreditType] = useState("credit-card")
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Common fields
   const [name, setName] = useState("")
@@ -47,65 +55,58 @@ export function AddCreditDialog() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setIsSubmitting(true)
 
-    // Validate form
-    if (!name || !balance || !dueDate || !interestRate) {
-      alert("Please fill in all required fields")
-      return
+    try {
+      if (creditType === "credit-card") {
+        await creditAPI.addCard({
+          name,
+          last_four: cardNumber,
+          balance: Number.parseFloat(balance),
+          credit_limit: Number.parseFloat(creditLimit),
+          interest_rate: Number.parseFloat(interestRate),
+          due_date: dueDate.toISOString(),
+          min_payment: minPayment ? Number.parseFloat(minPayment) : undefined,
+        })
+      } else {
+        // Loan information with required start_date value
+        await creditAPI.addLoan({
+          name,
+          balance: Number.parseFloat(balance),
+          due_date: dueDate.toISOString(),
+          interest_rate: Number.parseFloat(interestRate),
+          bank_number: bankNumber,
+          original_amount: Number.parseFloat(originalAmount),
+          term,
+          monthly_payment: Number.parseFloat(monthlyPayment),
+          loan_type: "personal", // Default to personal loan
+          start_date: new Date().toISOString(), // Añadimos la fecha de inicio actual
+        })
+      }
+
+      // Show success message
+      toast({
+        title: "Success",
+        description: `${creditType === "credit-card" ? "Credit card" : "Loan"} added successfully!`,
+        variant: "default",
+      })
+
+      // Reset form and close dialog
+      resetForm()
+      setOpen(false)
+
+      // Reload cards list
+      onSuccess?.()
+    } catch (error) {
+      console.error("Failed to add credit card/loan:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add credit card/loan. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    // Create credit object based on type
-    const creditData = {
-      type: creditType,
-      name,
-      balance: Number.parseFloat(balance),
-      dueDate,
-      interestRate: Number.parseFloat(interestRate),
-      ...(creditType === "credit-card"
-        ? {
-            lastFour: cardNumber,
-            limit: creditLimit ? Number.parseFloat(creditLimit) : undefined,
-            minPayment: minPayment ? Number.parseFloat(minPayment) : undefined,
-          }
-        : {
-            bankNumber,
-            originalAmount: originalAmount ? Number.parseFloat(originalAmount) : undefined,
-            term,
-            monthlyPayment: monthlyPayment ? Number.parseFloat(monthlyPayment) : undefined,
-          }),
-    }
-
-    // In a real app, you would send this data to your API
-    console.log(creditData)
-
-    // API integration (commented out until backend is ready)
-    // try {
-    //   setIsLoading(true);
-    //
-    //   if (creditType === "credit-card") {
-    //     await creditAPI.addCard(creditData);
-    //   } else {
-    //     await creditAPI.addLoan(creditData);
-    //   }
-    //
-    //   // Handle success
-    //   console.log(`${creditType === "credit-card" ? "Credit card" : "Loan"} added successfully`);
-    //
-    //   // Close the dialog after submission
-    //   setOpen(false);
-    //
-    //   // Reset the form
-    //   resetForm();
-    // } catch (error) {
-    //   console.error(`Failed to add ${creditType === "credit-card" ? "credit card" : "loan"}:`, error);
-    //   alert(`Failed to add ${creditType === "credit-card" ? "credit card" : "loan"}. Please try again.`);
-    // } finally {
-    //   setIsLoading(false);
-    // }
-
-    // For now, just close the dialog and reset the form
-    setOpen(false)
-    resetForm()
   }
 
   function resetForm() {
@@ -253,6 +254,7 @@ export function AddCreditDialog() {
                       className="pl-7"
                       type="number"
                       step="0.01"
+                      required
                     />
                   </div>
                 </div>
@@ -300,6 +302,7 @@ export function AddCreditDialog() {
                       className="pl-7"
                       type="number"
                       step="0.01"
+                      required
                     />
                   </div>
                 </div>
@@ -322,6 +325,7 @@ export function AddCreditDialog() {
                     className="pl-7"
                     type="number"
                     step="0.01"
+                    required
                   />
                 </div>
               </div>

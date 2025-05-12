@@ -1,23 +1,21 @@
-const express = require("express")
-const {
-  getBudgets,
-  getBudgetProgress,
-  createOrUpdateBudget,
-  deleteBudget,
-  generateMonthlyBudgets,
-} = require("../controllers/budgetController")
-const { protect } = require("../middleware/auth")
+const express = require('express');
+const budgetController = require('../controllers/budgetController');
+const { protect } = require('../middleware/auth');
 
-const router = express.Router()
+const router = express.Router();
 
-// All routes are protected
-router.use(protect)
+// Protect all routes
+router.use(protect);
 
-router.route("/").get(getBudgets).post(createOrUpdateBudget)
+// Budget routes
+router.post('/', budgetController.createOrUpdateBudget);
+router.get('/:year/:month', budgetController.getBudget);
 
-router.get("/progress", getBudgetProgress)
-router.post("/generate", generateMonthlyBudgets)
-router.delete("/:categoryId/:year/:month", deleteBudget)
+// Budget category routes
+router.delete('/categories/:id', budgetController.deleteBudgetCategory);
 
-module.exports = router
+// Budget alert routes
+router.get('/alerts', budgetController.getBudgetAlerts);
+router.patch('/alerts/:id', budgetController.markAlertAsRead);
 
+module.exports = router;

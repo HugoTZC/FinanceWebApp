@@ -24,29 +24,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
+import { creditAPI, transactionsAPI, categoriesAPI } from "@/lib/api"
+import type { CreditCardType } from "@/types/credit"
+import { toast } from "@/components/ui/use-toast"
 
 // Sample credit cards data - in a real app, this would come from your API
 const creditCards = [
   { id: "cc1", name: "Chase Sapphire", lastFour: "4567" },
   { id: "cc2", name: "American Express", lastFour: "7890" },
   { id: "cc3", name: "Discover", lastFour: "1234" },
-]
-
-const categories = [
-  { label: "Housing", value: "housing" },
-  { label: "Food", value: "food" },
-  { label: "Transportation", value: "transportation" },
-  { label: "Entertainment", value: "entertainment" },
-  { label: "Utilities", value: "utilities" },
-  { label: "Shopping", value: "shopping" },
-  { label: "Healthcare", value: "healthcare" },
-  { label: "Education", value: "education" },
-  { label: "Personal", value: "personal" },
-  { label: "Salary", value: "salary" },
-  { label: "Investment", value: "investment" },
-  { label: "Gift", value: "gift" },
-  { label: "Other Income", value: "other-income" },
-  { label: "Other Expense", value: "other-expense" },
 ]
 
 // Add this sample data for savings accounts after the categories array
@@ -69,6 +55,16 @@ const recurringPayments = [
 // Combine savings accounts and recurring payments for the dropdown
 const allSavingsOptions = [...savingsAccounts, ...recurringPayments]
 
+interface Category {
+  id: string;
+  name: string;
+  type: "income" | "expense";
+  category_group: "essential" | "discretionary" | "income";
+  icon: string;
+  color: string;
+  source: 'default' | 'user';
+}
+
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false)
   const [date, setDate] = useState<Date>(new Date())
@@ -81,14 +77,14 @@ export function AddTransactionDialog() {
   const [paymentMethod, setPaymentMethod] = useState("cash")
   const [selectedCard, setSelectedCard] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
 
   // Add this state for savings account assignment after the other state declarations
   const [assignToSavings, setAssignToSavings] = useState(false)
   const [selectedSavingsAccount, setSelectedSavingsAccount] = useState("")
-
-  // State for API data
-  // const [apiCreditCards, setApiCreditCards] = useState<any[]>([]);
-  // const [apiCategories, setApiCategories] = useState<any[]>([]);
+  const [apiCreditCards, setApiCreditCards] = useState<CreditCardType[]>([])
+  const [isLoadingCards, setIsLoadingCards] = useState(false)
 
   // Reset payment method when transaction type changes
   useEffect(() => {
@@ -108,101 +104,168 @@ export function AddTransactionDialog() {
   }, [type, paymentMethod])
 
   // Fetch credit cards from API
-  // useEffect(() => {
-  //   async function fetchCreditCards() {
-  //     try {
-  //       const response = await creditAPI.getCards();
-  //       setApiCreditCards(response.data);
-  //     } catch (error) {
-  //       console.error("Failed to fetch credit cards:", error);
-  //     }
-  //   }
-  //
-  //   fetchCreditCards();
-  // }, []);
+  useEffect(() => {
+    async function fetchCreditCards() {
+      try {
+        setIsLoadingCards(true)
+        const response = await creditAPI.getCards()
+        if (response?.data?.data?.cards) {
+          setApiCreditCards(response.data.data.cards)
+        }
+      } catch (error) {
+        console.error("Failed to fetch credit cards:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load credit cards. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingCards(false)
+      }
+    }
 
-  // Fetch categories from API
-  // useEffect(() => {
-  //   async function fetchCategories() {
-  //     try {
-  //       const response = await budgetAPI.getCategories();
-  //       setApiCategories(response.data);
-  //     } catch (error) {
-  //       console.error("Failed to fetch categories:", error);
-  //     }
-  //   }
-  //
-  //   fetchCategories();
-  // }, []);
+    if (type === "expense" && paymentMethod === "credit-card") {
+      fetchCreditCards()
+    }
+  }, [type, paymentMethod])
+
+  // Fetch categories when type changes
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        setIsLoadingCategories(true)
+        const response = await categoriesAPI.getByType(type)
+        if (response?.data?.data?.categories) {
+          setCategories(response.data.data.categories)
+        }
+      } catch (error) {
+        console.error("Failed to fetch categories:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load categories. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingCategories(false)
+      }
+    }
+
+    fetchCategories()
+  }, [type])
+
+  // Reset category when type changes
+  useEffect(() => {
+    setCategory("")
+  }, [type])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     // Validate form
     if (!title || !amount || !category || !date) {
-      alert("Please fill in all required fields")
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
       return
     }
 
     if (type === "expense" && paymentMethod === "credit-card" && !selectedCard) {
-      alert("Please select a credit card")
+      toast({
+        title: "Error",
+        description: "Please select a credit card",
+        variant: "destructive",
+      })
       return
     }
 
-    // Create transaction object
-    const transaction = {
-      title,
-      amount: Number.parseFloat(amount),
-      type,
-      category,
-      date,
-      comment,
-      paymentMethod: type === "expense" ? paymentMethod : null,
-      creditCardId: paymentMethod === "credit-card" ? selectedCard : null,
-      // Add this to the transaction object inside handleSubmit
-      assignToSavings: type === "expense" && paymentMethod === "cash" ? assignToSavings : false,
-      savingsAccountId: assignToSavings ? selectedSavingsAccount : null,
+    try {
+      setIsLoading(true)
+      
+      // Normalizar el método de pago para la API
+      // La API espera 'credit_card' en lugar de 'credit-card'
+      const normalizedPaymentMethod = paymentMethod === "credit-card" ? "credit_card" : paymentMethod;
+      
+      console.log("[TRANSACTION] Creating transaction with payment method:", normalizedPaymentMethod)
+      
+      // Create transaction object - use category name as received from the API
+      const transaction = {
+        title,
+        amount: Number.parseFloat(amount),
+        type,
+        category,
+        transaction_date: date.toISOString(),
+        comment,
+        payment_method: normalizedPaymentMethod,
+        credit_card_id: paymentMethod === "credit-card" ? selectedCard : null,
+        assign_to_savings: type === "expense" && paymentMethod === "cash" ? assignToSavings : false,
+        savings_goal_id: assignToSavings ? selectedSavingsAccount : null,
+      }
+      
+      console.log("[TRANSACTION] Transaction data:", transaction)
+
+      // Create the transaction
+      const response = await transactionsAPI.create(transaction)
+      console.log("[TRANSACTION] Transaction created:", response.data)
+
+      // Si es una transacción de tarjeta de crédito, actualizar el saldo de la tarjeta
+      if (type === "expense" && paymentMethod === "credit-card" && selectedCard) {
+        try {
+          // Get the current card data
+          const cardResponse = await creditAPI.getCardById(selectedCard)
+          
+          if (cardResponse?.data?.card) {
+            const card = cardResponse.data.card
+            
+            console.log("[TRANSACTION] Updating credit card balance:", {
+              oldBalance: card.balance,
+              amount: Number.parseFloat(amount),
+              newBalance: card.balance + Number.parseFloat(amount)
+            })
+            
+            // Update the card balance
+            await creditAPI.updateCard(selectedCard, {
+              ...card,
+              balance: card.balance + Number.parseFloat(amount),
+            })
+            
+            console.log("[TRANSACTION] Credit card balance updated successfully")
+          } else {
+            console.error("[TRANSACTION] Could not get credit card data:", cardResponse)
+          }
+        } catch (cardError) {
+          console.error("[TRANSACTION] Error updating credit card balance:", cardError)
+          // No fallamos toda la operación si solo falla la actualización de la tarjeta
+          // porque la transacción ya fue creada exitosamente
+          toast({
+            title: "Warning",
+            description: "Transaction created, but credit card balance could not be updated",
+            variant: "default",
+          })
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Transaction added successfully",
+      })
+
+      // Close the dialog after submission
+      setOpen(false)
+
+      // Reset the form
+      resetForm()
+    } catch (error: any) {
+      console.error("Failed to create transaction:", error)
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to create transaction",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
-
-    // In a real app, you would send this data to your API
-    console.log(transaction)
-
-    // API integration (commented out until backend is ready)
-    // try {
-    //   setIsLoading(true);
-    //   const response = await transactionsAPI.create(transaction);
-    //
-    //   // If it's a credit card transaction, update the card balance
-    //   if (type === "expense" && paymentMethod === "credit-card" && selectedCard) {
-    //     // Get the current card data
-    //     const cardResponse = await creditAPI.getCardById(selectedCard);
-    //     const card = cardResponse.data;
-    //
-    //     // Update the card balance
-    //     await creditAPI.updateCard(selectedCard, {
-    //       ...card,
-    //       balance: card.balance + parseFloat(amount)
-    //     });
-    //   }
-    //
-    //   // Handle success
-    //   console.log("Transaction created:", response.data);
-    //
-    //   // Close the dialog after submission
-    //   setOpen(false);
-    //
-    //   // Reset the form
-    //   resetForm();
-    // } catch (error) {
-    //   console.error("Failed to create transaction:", error);
-    //   alert("Failed to create transaction. Please try again.");
-    // } finally {
-    //   setIsLoading(false);
-    // }
-
-    // For now, just close the dialog and reset the form
-    setOpen(false)
-    resetForm()
   }
 
   function resetForm() {
@@ -281,29 +344,34 @@ export function AddTransactionDialog() {
             <Label htmlFor="category">Category</Label>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger id="category">
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select category"} />
               </SelectTrigger>
               <SelectContent>
-                {/* Use API categories when backend is ready */}
-                {/* {apiCategories.length > 0 
-                  ? apiCategories.map((cat) => (
+                {isLoadingCategories ? (
+                  <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                ) : categories.length > 0 ? (
+                  <>
+                    <SelectItem value="system-header" disabled className="font-semibold">
+                      System Categories
+                    </SelectItem>
+                    {categories.filter(cat => cat.source === 'default').map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>
-                    ))
-                  : categories.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
+                    ))}
+                    
+                    <SelectItem value="user-header" disabled className="font-semibold">
+                      Custom Categories
+                    </SelectItem>
+                    {categories.filter(cat => cat.source === 'user').map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
                       </SelectItem>
-                    ))
-                } */}
-
-                {/* For now, use mock categories */}
-                {categories.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
+                    ))}
+                  </>
+                ) : (
+                  <SelectItem value="no-categories" disabled>No categories found</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -335,29 +403,20 @@ export function AddTransactionDialog() {
               <Label htmlFor="creditCard">Select Credit Card</Label>
               <Select value={selectedCard} onValueChange={setSelectedCard}>
                 <SelectTrigger id="creditCard">
-                  <SelectValue placeholder="Select credit card" />
+                  <SelectValue placeholder={isLoadingCards ? "Loading cards..." : "Select credit card"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Use API credit cards when backend is ready */}
-                  {/* {apiCreditCards.length > 0 
-                    ? apiCreditCards.map((card) => (
-                        <SelectItem key={card.id} value={card.id}>
-                          {card.name} (*{card.lastFour})
-                        </SelectItem>
-                      ))
-                    : creditCards.map((card) => (
-                        <SelectItem key={card.id} value={card.id}>
-                          {card.name} (*{card.lastFour})
-                        </SelectItem>
-                      ))
-                  } */}
-
-                  {/* For now, use mock credit cards */}
-                  {creditCards.map((card) => (
-                    <SelectItem key={card.id} value={card.id}>
-                      {card.name} (*{card.lastFour})
-                    </SelectItem>
-                  ))}
+                  {isLoadingCards ? (
+                    <SelectItem value="loading" disabled>Loading credit cards...</SelectItem>
+                  ) : apiCreditCards.length > 0 ? (
+                    apiCreditCards.map((card) => (
+                      <SelectItem key={card.id} value={card.id}>
+                        {card.name} (*{card.last_four})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-cards" disabled>No credit cards found</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

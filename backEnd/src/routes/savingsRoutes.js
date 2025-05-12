@@ -1,26 +1,32 @@
-const express = require("express")
-const {
-  getSavingsGoals,
-  getSavingsGoal,
-  createSavingsGoal,
-  updateSavingsGoal,
-  deleteSavingsGoal,
-  getSavingsProgress,
-  getSavingsGoalTransactions,
-} = require("../controllers/savingsController")
-const { protect } = require("../middleware/auth")
+const express = require('express');
+const savingsController = require('../controllers/savingsController');
 
-const router = express.Router()
+const router = express.Router();
 
-// All routes are protected
-router.use(protect)
+// Savings goal routes
+router.route('/goals')
+  .get(savingsController.getSavingsGoals)
+  .post(savingsController.createSavingsGoal);
 
-router.route("/goals").get(getSavingsGoals).post(createSavingsGoal)
+router.route('/goals/:id')
+  .get(savingsController.getSavingsGoal)
+  .patch(savingsController.updateSavingsGoal)
+  .delete(savingsController.deleteSavingsGoal);
 
-router.route("/goals/:id").get(getSavingsGoal).put(updateSavingsGoal).delete(deleteSavingsGoal)
+// Savings goal progress route
+router.get('/goals/:id/progress', savingsController.getSavingsGoalProgress);
 
-router.get("/goals/:id/transactions", getSavingsGoalTransactions)
-router.get("/progress", getSavingsProgress)
+// Recurring payment routes
+router.route('/recurring')
+  .get(savingsController.getRecurringPayments)
+  .post(savingsController.createRecurringPayment);
 
-module.exports = router
+router.route('/recurring/:id')
+  .get(savingsController.getRecurringPayment)
+  .patch(savingsController.updateRecurringPayment)
+  .delete(savingsController.deleteRecurringPayment);
 
+// Recurring payment progress route
+router.get('/recurring/:id/progress', savingsController.getRecurringPaymentProgress);
+
+module.exports = router;

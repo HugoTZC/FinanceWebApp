@@ -1,156 +1,295 @@
-const { pool } = require("../config/database")
+const db = require('../config/database');
 
-/**
- * Savings model for database operations
- */
-const SavingsModel = {
+const savingsModel = {
   /**
-   * Get all savings goals for a user
-   * @param {String} userId - User ID
-   * @returns {Promise<Array>} - Array of savings goals
-   */
-  async getAll(userId) {
-    const query = `
-      SELECT * FROM savings_goals
-      WHERE user_id = $1
-      ORDER BY is_completed, due_date
-    `
-
-    const result = await pool.query(query, [userId])
-    return result.rows
-  },
-
-  /**
-   * Get a savings goal by ID
-   * @param {String} id - Savings goal ID
-   * @param {String} userId - User ID (for authorization)
-   * @returns {Promise<Object|null>} - Savings goal or null
-   */
-  async getById(id, userId) {
-    const query = `
-      SELECT * FROM savings_goals
-      WHERE id = $1 AND user_id = $2
-    `
-
-    const result = await pool.query(query, [id, userId])
-    return result.rows[0] || null
-  },
-
-  /**
-   * Create a new savings goal
+   * Create savings goal
    * @param {Object} goalData - Savings goal data
-   * @returns {Promise<Object>} - Created savings goal
+   * @returns {Object} Created savings goal
    */
-  async create(goalData) {
-    const { user_id, name, target_amount, current_amount, due_date, due_date_day, monthly_contribution } = goalData
-
+  async createSavingsGoal(goalData) {
+    const { 
+      user_id, name, target_amount, current_amount, 
+      start_date, target_date 
+    } = goalData;
+    
     const query = `
-      INSERT INTO savings_goals (
-        user_id, name, target_amount, current_amount, due_date, due_date_day, monthly_contribution
+      INSERT INTO finance.savings_goals (
+        user_id, name, target_amount, current_amount, 
+        start_date, target_date
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `;
+    
+    const values = [
+      user_id, name, target_amount, current_amount || 0,
+      start_date || new Date(), target_date
+    ];
+    
+    const result = await db.query(query, values);
+    return result.rows[0];
+  },
+  
+  /**
+   * Get savings goals for user
+   * @param {string} userId - User ID
+   * @returns {Array} Savings goals
+   */
+  async getSavingsGoals(userId) {
+    const query = `
+      SELECT *
+      FROM finance.savings_goals
+      WHERE user_id = $1
+      ORDER BY is_completed, target_date
+    `;
+    
+    const result = await db.query(query, [userId]);
+    return result.rows;
+  },
+  
+  /**
+   * Get savings goal by ID
+   * @param {string} id - Savings goal ID
+   * @param {string} userId - User ID
+   * @returns {Object} Savings goal
+   */
+  async getSavingsGoalById(id, userId) {
+    const query = `
+      SELECT *
+      FROM finance.savings_goals
+      WHERE id = $1 AND user_id = $2
+    `;
+    
+    const result = await db.query(query, [id, userId]);
+    return result.rows[0] || null;
+  },
+  
+  /**
+   * Update savings goal
+   * @param {string} id - Savings goal ID
+   * @param {string} userId - User ID
+   * @param {Object} goalData - Savings goal data to update
+   * @returns {Object} Updated savings goal
+   */
+  async updateSavingsGoal(id, userId, goalData) {
+    const allowedFields = [
+      'name', 'target_amount', 'current_amount', 
+      'start_date', 'target_date', 'is_completed'
+    ];
+    
+    const updateFields = [];
+    const values = [];
+    
+    // Build dynamic query based on provided fields
+    let fieldIndex = 1;
+    for (const [key, value] of Object.entries(goalData)) {
+      if (allowedFields.includes(key)) {
+        updateFields.push(`${key} = $${fieldIndex}`);
+        values.push(value);
+        fieldIndex++;
+      }
+    }
+    
+    if (updateFields.length === 0) {
+      return null;
+    }
+    
+    values.push(id, userId);
+    
+    const query = `
+      UPDATE finance.savings_goals
+      SET ${updateFields.join(', ')}
+      WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
+      RETURNING *
+    `;
+    
+    const result = await db.query(query, values);
+    return result.rows[0] || null;
+  },
+  
+  /**
+   * Delete savings goal
+   * @param {string} id - Savings goal ID
+   * @param {string} userId - User ID
+   * @returns {boolean} Success
+   */
+  async deleteSavingsGoal(id, userId) {
+    const query = `
+      DELETE FROM finance.savings_goals
+      WHERE id = $1 AND user_id = $2
+      RETURNING id
+    `;
+    
+    const result = await db.query(query, [id, userId]);
+    return result.rows.length > 0;
+  },
+  
+  /**
+   * Create recurring payment
+   * @param {Object} paymentData - Recurring payment data
+   * @returns {Object} Created recurring payment
+   */
+  async createRecurringPayment(paymentData) {
+    const { 
+      user_id, name, amount, current_amount, 
+      due_date, frequency, category 
+    } = paymentData;
+    
+    const query = `
+      INSERT INTO finance.recurring_payments (
+        user_id, name, amount, current_amount, 
+        due_date, frequency, category
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `
-
-    const values = [user_id, name, target_amount, current_amount || 0, due_date, due_date_day, monthly_contribution]
-
-    const result = await pool.query(query, values)
-    return result.rows[0]
-  },
-
-  /**
-   * Update a savings goal
-   * @param {String} id - Savings goal ID
-   * @param {String} userId - User ID (for authorization)
-   * @param {Object} goalData - Savings goal data to update
-   * @returns {Promise<Object|null>} - Updated savings goal or null
-   */
-  async update(id, userId, goalData) {
-    const { name, target_amount, current_amount, due_date, due_date_day, monthly_contribution, is_completed } = goalData
-
-    const query = `
-      UPDATE savings_goals
-      SET 
-        name = COALESCE($1, name),
-        target_amount = COALESCE($2, target_amount),
-        current_amount = COALESCE($3, current_amount),
-        due_date = COALESCE($4, due_date),
-        due_date_day = COALESCE($5, due_date_day),
-        monthly_contribution = COALESCE($6, monthly_contribution),
-        is_completed = COALESCE($7, is_completed),
-        updated_at = NOW()
-      WHERE id = $8 AND user_id = $9
-      RETURNING *
-    `
-
+    `;
+    
     const values = [
-      name,
-      target_amount,
-      current_amount,
-      due_date,
-      due_date_day,
-      monthly_contribution,
-      is_completed,
-      id,
-      userId,
-    ]
-
-    const result = await pool.query(query, values)
-    return result.rows[0] || null
+      user_id, name, amount, current_amount || 0,
+      due_date, frequency, category
+    ];
+    
+    const result = await db.query(query, values);
+    return result.rows[0];
   },
-
+  
   /**
-   * Delete a savings goal
-   * @param {String} id - Savings goal ID
-   * @param {String} userId - User ID (for authorization)
-   * @returns {Promise<Boolean>} - Success status
+   * Get recurring payments for user
+   * @param {string} userId - User ID
+   * @returns {Array} Recurring payments
    */
-  async delete(id, userId) {
+  async getRecurringPayments(userId) {
     const query = `
-      DELETE FROM savings_goals
+      SELECT *
+      FROM finance.recurring_payments
+      WHERE user_id = $1
+      ORDER BY due_date
+    `;
+    
+    const result = await db.query(query, [userId]);
+    return result.rows;
+  },
+  
+  /**
+   * Get recurring payment by ID
+   * @param {string} id - Recurring payment ID
+   * @param {string} userId - User ID
+   * @returns {Object} Recurring payment
+   */
+  async getRecurringPaymentById(id, userId) {
+    const query = `
+      SELECT *
+      FROM finance.recurring_payments
+      WHERE id = $1 AND user_id = $2
+    `;
+    
+    const result = await db.query(query, [id, userId]);
+    return result.rows[0] || null;
+  },
+  
+  /**
+   * Update recurring payment
+   * @param {string} id - Recurring payment ID
+   * @param {string} userId - User ID
+   * @param {Object} paymentData - Recurring payment data to update
+   * @returns {Object} Updated recurring payment
+   */
+  async updateRecurringPayment(id, userId, paymentData) {
+    const allowedFields = [
+      'name', 'amount', 'current_amount', 
+      'due_date', 'frequency', 'category'
+    ];
+    
+    const updateFields = [];
+    const values = [];
+    
+    // Build dynamic query based on provided fields
+    let fieldIndex = 1;
+    for (const [key, value] of Object.entries(paymentData)) {
+      if (allowedFields.includes(key)) {
+        updateFields.push(`${key} = $${fieldIndex}`);
+        values.push(value);
+        fieldIndex++;
+      }
+    }
+    
+    if (updateFields.length === 0) {
+      return null;
+    }
+    
+    values.push(id, userId);
+    
+    const query = `
+      UPDATE finance.recurring_payments
+      SET ${updateFields.join(', ')}
+      WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
+      RETURNING *
+    `;
+    
+    const result = await db.query(query, values);
+    return result.rows[0] || null;
+  },
+  
+  /**
+   * Delete recurring payment
+   * @param {string} id - Recurring payment ID
+   * @param {string} userId - User ID
+   * @returns {boolean} Success
+   */
+  async deleteRecurringPayment(id, userId) {
+    const query = `
+      DELETE FROM finance.recurring_payments
       WHERE id = $1 AND user_id = $2
       RETURNING id
-    `
-
-    const result = await pool.query(query, [id, userId])
-    return result.rows.length > 0
+    `;
+    
+    const result = await db.query(query, [id, userId]);
+    return result.rows.length > 0;
   },
-
+  
   /**
    * Get savings goal progress
-   * @param {String} userId - User ID
-   * @returns {Promise<Array>} - Savings goal progress data
+   * @param {string} goalId - Savings goal ID
+   * @param {string} userId - User ID
+   * @returns {Object} Savings goal progress
    */
-  async getSavingsProgress(userId) {
+  async getSavingsGoalProgress(goalId, userId) {
     const query = `
-      SELECT * FROM savings_goal_progress
-      WHERE user_id = $1
-      ORDER BY days_remaining NULLS LAST
-    `
-
-    const result = await pool.query(query, [userId])
-    return result.rows
+      SELECT 
+        sg.*,
+        COALESCE(SUM(t.amount), 0) as total_contributions,
+        COUNT(t.id) as contribution_count
+      FROM finance.savings_goals sg
+      LEFT JOIN finance.transactions t ON t.savings_goal_id = sg.id
+      WHERE sg.id = $1 AND sg.user_id = $2
+      GROUP BY sg.id
+    `;
+    
+    const result = await db.query(query, [goalId, userId]);
+    return result.rows[0] || null;
   },
-
+  
   /**
-   * Get transactions for a savings goal
-   * @param {String} goalId - Savings goal ID
-   * @param {String} userId - User ID (for authorization)
-   * @returns {Promise<Array>} - Array of transactions
+   * Get recurring payment progress
+   * @param {string} paymentId - Recurring payment ID
+   * @param {string} userId - User ID
+   * @returns {Object} Recurring payment progress
    */
-  async getTransactions(goalId, userId) {
+  async getRecurringPaymentProgress(paymentId, userId) {
     const query = `
-      SELECT t.*, c.name as category_name, c.color as category_color
-      FROM transactions t
-      LEFT JOIN categories c ON t.category_id = c.id
-      WHERE t.savings_goal_id = $1 AND t.user_id = $2
-      ORDER BY t.transaction_date DESC
-    `
+      SELECT 
+        rp.*,
+        COALESCE(SUM(t.amount), 0) as total_contributions,
+        COUNT(t.id) as contribution_count
+      FROM finance.recurring_payments rp
+      LEFT JOIN finance.transactions t ON t.recurring_payment_id = rp.id
+      WHERE rp.id = $1 AND rp.user_id = $2
+      GROUP BY rp.id
+    `;
+    
+    const result = await db.query(query, [paymentId, userId]);
+    return result.rows[0] || null;
+  }
+};
 
-    const result = await pool.query(query, [goalId, userId])
-    return result.rows
-  },
-}
-
-module.exports = SavingsModel
-
+module.exports = savingsModel;

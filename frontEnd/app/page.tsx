@@ -1,13 +1,39 @@
-import { DashboardPage } from "@/components/dashboard/dashboard-page"
+"use client"
+
+import { DashboardPage } from "@/components/dashboard/dashboard-page";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { authAPI } from "@/lib/api";
+import Loading from "@/components/ui/loading";
 
 export default function Home() {
-  // In a real app, you would check authentication here
-  // If not authenticated, redirect to login
-  // For demo purposes, we'll just show the dashboard
+  const router = useRouter();
 
-  // Uncomment to enable authentication redirect
-  // redirect("/auth/login");
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await authAPI.getProfile();
+        if (!response?.data) {
+          router.push("/auth/login");
+        }
+      } catch (error) {
+        console.error("Authentication verification failed:", error);
+        router.push("/auth/login");
+      }
+    };
+  
+    checkAuth();
+  }, [router]);
 
-  return <DashboardPage />
+  // Return loading state initially
+  const isServerSide = typeof window === "undefined";
+  const hasToken = !isServerSide && localStorage.getItem("token");
+  
+  if (!hasToken) {
+    router.push("/auth/login");
+    return null;
+  }
+
+  return <DashboardPage />;
 }
 

@@ -1,17 +1,29 @@
-const express = require("express")
-const { register, login, getProfile, logout } = require("../controllers/authController")
-const { protect } = require("../middleware/auth")
-const { userValidationRules, validate } = require("../middleware/validator")
+const express = require('express');
+const { 
+    register, 
+    login, 
+    forgotPassword, 
+    resetPassword, 
+    updatePassword,
+    getMe,
+    logout,
+    protect,
+    refreshToken,
+ } = require('../controllers/authController');
 
-const router = express.Router()
+const router = express.Router();
 
-// Public routes
-router.post("/register", userValidationRules, validate, register)
-router.post("/login", login)
+// Public authentication routes
+router.post('/register', register);
+router.post('/login', login);
+router.post('/logout', logout);
+router.post('/forgot-password', forgotPassword);
+router.patch('/reset-password/:token', resetPassword);
+router.post("/refresh-token", refreshToken);  // Moved before protect middleware
 
 // Protected routes
-router.get("/profile", protect, getProfile)
-router.post("/logout", protect, logout)
+router.use(protect);
+router.patch('/update-password', updatePassword);
+router.get('/me', getMe);
 
-module.exports = router
-
+module.exports = router;

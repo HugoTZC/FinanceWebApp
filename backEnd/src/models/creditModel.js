@@ -1,307 +1,352 @@
-const { pool } = require("../config/database")
+const db = require('../config/database');
 
-/**
- * Credit model for database operations
- */
-const CreditModel = {
+const creditModel = {
   /**
-   * Get all credit cards for a user
-   * @param {String} userId - User ID
-   * @returns {Promise<Array>} - Array of credit cards
-   */
-  async getCards(userId) {
-    const query = `
-      SELECT * FROM credit_cards
-      WHERE user_id = $1
-      ORDER BY name
-    `
-
-    const result = await pool.query(query, [userId])
-    return result.rows
-  },
-
-  /**
-   * Get a credit card by ID
-   * @param {String} id - Credit card ID
-   * @param {String} userId - User ID (for authorization)
-   * @returns {Promise<Object|null>} - Credit card or null
-   */
-  async getCardById(id, userId) {
-    const query = `
-      SELECT * FROM credit_cards
-      WHERE id = $1 AND user_id = $2
-    `
-
-    const result = await pool.query(query, [id, userId])
-    return result.rows[0] || null
-  },
-
-  /**
-   * Add a new credit card
+   * Create credit card
    * @param {Object} cardData - Credit card data
-   * @returns {Promise<Object>} - Created credit card
+   * @returns {Object} Created credit card
    */
-  async addCard(cardData) {
-    const { user_id, name, last_four, balance, credit_limit, due_date, min_payment, interest_rate } = cardData
-
+  async createCreditCard(cardData) {
+    const { 
+      user_id, name, last_four, card_type, balance, 
+      credit_limit, interest_rate, due_date, min_payment 
+    } = cardData;
+    
     const query = `
-      INSERT INTO credit_cards (
-        user_id, name, last_four, balance, credit_limit, due_date, min_payment, interest_rate
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `
-
-    const values = [user_id, name, last_four, balance || 0, credit_limit, due_date, min_payment, interest_rate]
-
-    const result = await pool.query(query, values)
-    return result.rows[0]
-  },
-
-  /**
-   * Update a credit card
-   * @param {String} id - Credit card ID
-   * @param {String} userId - User ID (for authorization)
-   * @param {Object} cardData - Credit card data to update
-   * @returns {Promise<Object|null>} - Updated credit card or null
-   */
-  async updateCard(id, userId, cardData) {
-    const { name, last_four, balance, credit_limit, due_date, min_payment, interest_rate } = cardData
-
-    const query = `
-      UPDATE credit_cards
-      SET 
-        name = COALESCE($1, name),
-        last_four = COALESCE($2, last_four),
-        balance = COALESCE($3, balance),
-        credit_limit = COALESCE($4, credit_limit),
-        due_date = COALESCE($5, due_date),
-        min_payment = COALESCE($6, min_payment),
-        interest_rate = COALESCE($7, interest_rate),
-        updated_at = NOW()
-      WHERE id = $8 AND user_id = $9
-      RETURNING *
-    `
-
-    const values = [name, last_four, balance, credit_limit, due_date, min_payment, interest_rate, id, userId]
-
-    const result = await pool.query(query, values)
-    return result.rows[0] || null
-  },
-
-  /**
-   * Delete a credit card
-   * @param {String} id - Credit card ID
-   * @param {String} userId - User ID (for authorization)
-   * @returns {Promise<Boolean>} - Success status
-   */
-  async deleteCard(id, userId) {
-    const query = `
-      DELETE FROM credit_cards
-      WHERE id = $1 AND user_id = $2
-      RETURNING id
-    `
-
-    const result = await pool.query(query, [id, userId])
-    return result.rows.length > 0
-  },
-
-  /**
-   * Get all loans for a user
-   * @param {String} userId - User ID
-   * @returns {Promise<Array>} - Array of loans
-   */
-  async getLoans(userId) {
-    const query = `
-      SELECT * FROM loans
-      WHERE user_id = $1
-      ORDER BY name
-    `
-
-    const result = await pool.query(query, [userId])
-    return result.rows
-  },
-
-  /**
-   * Get a loan by ID
-   * @param {String} id - Loan ID
-   * @param {String} userId - User ID (for authorization)
-   * @returns {Promise<Object|null>} - Loan or null
-   */
-  async getLoanById(id, userId) {
-    const query = `
-      SELECT * FROM loans
-      WHERE id = $1 AND user_id = $2
-    `
-
-    const result = await pool.query(query, [id, userId])
-    return result.rows[0] || null
-  },
-
-  /**
-   * Add a new loan
-   * @param {Object} loanData - Loan data
-   * @returns {Promise<Object>} - Created loan
-   */
-  async addLoan(loanData) {
-    const { user_id, name, bank_number, balance, original_amount, interest_rate, monthly_payment, due_date, term } =
-      loanData
-
-    const query = `
-      INSERT INTO loans (
-        user_id, name, bank_number, balance, original_amount, interest_rate, monthly_payment, due_date, term
+      INSERT INTO finance.credit_cards (
+        user_id, name, last_four, card_type, balance, 
+        credit_limit, interest_rate, due_date, min_payment
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
-    `
-
+    `;
+    
     const values = [
-      user_id,
-      name,
-      bank_number,
-      balance,
-      original_amount,
-      interest_rate,
-      monthly_payment,
-      due_date,
-      term,
-    ]
-
-    const result = await pool.query(query, values)
-    return result.rows[0]
+      user_id, name, last_four, card_type || null, balance || 0,
+      credit_limit, interest_rate, due_date, min_payment
+    ];
+    
+    const result = await db.query(query, values);
+    return result.rows[0];
   },
-
+  
   /**
-   * Update a loan
-   * @param {String} id - Loan ID
-   * @param {String} userId - User ID (for authorization)
+   * Get credit cards for user
+   * @param {string} userId - User ID
+   * @returns {Array} Credit cards
+   */
+  async getCreditCards(userId) {
+    const query = `
+      SELECT *
+      FROM finance.credit_cards
+      WHERE user_id = $1
+      ORDER BY name
+    `;
+    
+    const result = await db.query(query, [userId]);
+    return result.rows;
+  },
+  
+  /**
+   * Get credit card by ID
+   * @param {string} id - Credit card ID
+   * @param {string} userId - User ID
+   * @returns {Object} Credit card
+   */
+  async getCreditCardById(id, userId) {
+    const query = `
+      SELECT *
+      FROM finance.credit_cards
+      WHERE id = $1 AND user_id = $2
+    `;
+    
+    const result = await db.query(query, [id, userId]);
+    return result.rows[0] || null;
+  },
+  
+  /**
+   * Update credit card
+   * @param {string} id - Credit card ID
+   * @param {string} userId - User ID
+   * @param {Object} cardData - Credit card data to update
+   * @returns {Object} Updated credit card
+   */
+  async updateCreditCard(id, userId, cardData) {
+    const allowedFields = [
+      'name', 'last_four', 'card_type', 'balance', 
+      'credit_limit', 'interest_rate', 'due_date', 'min_payment'
+    ];
+    
+    const updateFields = [];
+    const values = [];
+    
+    // Build dynamic query based on provided fields
+    let fieldIndex = 1;
+    for (const [key, value] of Object.entries(cardData)) {
+      if (allowedFields.includes(key)) {
+        updateFields.push(`${key} = $${fieldIndex}`);
+        values.push(value);
+        fieldIndex++;
+      }
+    }
+    
+    if (updateFields.length === 0) {
+      return null;
+    }
+    
+    values.push(id, userId);
+    
+    const query = `
+      UPDATE finance.credit_cards
+      SET ${updateFields.join(', ')}
+      WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
+      RETURNING *
+    `;
+    
+    const result = await db.query(query, values);
+    return result.rows[0] || null;
+  },
+  
+  /**
+   * Delete credit card
+   * @param {string} id - Credit card ID
+   * @param {string} userId - User ID
+   * @returns {boolean} Success
+   */
+  async deleteCreditCard(id, userId) {
+    const query = `
+      DELETE FROM finance.credit_cards
+      WHERE id = $1 AND user_id = $2
+      RETURNING id
+    `;
+    
+    const result = await db.query(query, [id, userId]);
+    return result.rows.length > 0;
+  },
+  
+  /**
+   * Create loan
+   * @param {Object} loanData - Loan data
+   * @returns {Object} Created loan
+   */
+  async createLoan(loanData) {
+    const { 
+      user_id, name, loan_type, bank_number, original_amount,
+      balance, interest_rate, term, monthly_payment, due_date,
+      start_date, end_date
+    } = loanData;
+    
+    const query = `
+      INSERT INTO finance.loans (
+        user_id, name, loan_type, bank_number, original_amount,
+        balance, interest_rate, term, monthly_payment, due_date,
+        start_date, end_date
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *
+    `;
+    
+    const values = [
+      user_id, 
+      name, 
+      loan_type || 'personal', 
+      bank_number || null, 
+      original_amount || balance,  // Si no se proporciona monto original, usar el balance actual
+      balance, 
+      interest_rate, 
+      term || null, 
+      monthly_payment, 
+      due_date,
+      start_date || new Date().toISOString(),  // Usar fecha actual si no se proporciona
+      end_date || null
+    ];
+    
+    const result = await db.query(query, values);
+    return result.rows[0];
+  },
+  
+  /**
+   * Get loans for user
+   * @param {string} userId - User ID
+   * @returns {Array} Loans
+   */
+  async getLoans(userId) {
+    const query = `
+      SELECT *
+      FROM finance.loans
+      WHERE user_id = $1
+      ORDER BY name
+    `;
+    
+    const result = await db.query(query, [userId]);
+    return result.rows;
+  },
+  
+  /**
+   * Get loan by ID
+   * @param {string} id - Loan ID
+   * @param {string} userId - User ID
+   * @returns {Object} Loan
+   */
+  async getLoanById(id, userId) {
+    const query = `
+      SELECT *
+      FROM finance.loans
+      WHERE id = $1 AND user_id = $2
+    `;
+    
+    const result = await db.query(query, [id, userId]);
+    return result.rows[0] || null;
+  },
+  
+  /**
+   * Update loan
+   * @param {string} id - Loan ID
+   * @param {string} userId - User ID
    * @param {Object} loanData - Loan data to update
-   * @returns {Promise<Object|null>} - Updated loan or null
+   * @returns {Object} Updated loan
    */
   async updateLoan(id, userId, loanData) {
-    const { name, bank_number, balance, original_amount, interest_rate, monthly_payment, due_date, term } = loanData
-
+    const allowedFields = [
+      'name', 'loan_type', 'bank_number', 'original_amount',
+      'balance', 'interest_rate', 'term', 'monthly_payment', 
+      'due_date', 'start_date', 'end_date'
+    ];
+    
+    const updateFields = [];
+    const values = [];
+    
+    // Build dynamic query based on provided fields
+    let fieldIndex = 1;
+    for (const [key, value] of Object.entries(loanData)) {
+      if (allowedFields.includes(key)) {
+        updateFields.push(`${key} = $${fieldIndex}`);
+        values.push(value);
+        fieldIndex++;
+      }
+    }
+    
+    if (updateFields.length === 0) {
+      return null;
+    }
+    
+    values.push(id, userId);
+    
     const query = `
-      UPDATE loans
-      SET 
-        name = COALESCE($1, name),
-        bank_number = COALESCE($2, bank_number),
-        balance = COALESCE($3, balance),
-        original_amount = COALESCE($4, original_amount),
-        interest_rate = COALESCE($5, interest_rate),
-        monthly_payment = COALESCE($6, monthly_payment),
-        due_date = COALESCE($7, due_date),
-        term = COALESCE($8, term),
-        updated_at = NOW()
-      WHERE id = $9 AND user_id = $10
+      UPDATE finance.loans
+      SET ${updateFields.join(', ')}
+      WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
       RETURNING *
-    `
-
-    const values = [
-      name,
-      bank_number,
-      balance,
-      original_amount,
-      interest_rate,
-      monthly_payment,
-      due_date,
-      term,
-      id,
-      userId,
-    ]
-
-    const result = await pool.query(query, values)
-    return result.rows[0] || null
+    `;
+    
+    const result = await db.query(query, values);
+    return result.rows[0] || null;
   },
-
+  
   /**
-   * Delete a loan
-   * @param {String} id - Loan ID
-   * @param {String} userId - User ID (for authorization)
-   * @returns {Promise<Boolean>} - Success status
+   * Delete loan
+   * @param {string} id - Loan ID
+   * @param {string} userId - User ID
+   * @returns {boolean} Success
    */
   async deleteLoan(id, userId) {
     const query = `
-      DELETE FROM loans
+      DELETE FROM finance.loans
       WHERE id = $1 AND user_id = $2
       RETURNING id
-    `
-
-    const result = await pool.query(query, [id, userId])
-    return result.rows.length > 0
-  },
-
-  /**
-   * Get credit card spending
-   * @param {String} cardId - Credit card ID
-   * @param {String} userId - User ID (for authorization)
-   * @param {Number} year - Year (optional)
-   * @param {Number} month - Month (optional)
-   * @returns {Promise<Array>} - Credit card spending data
-   */
-  async getCardSpending(cardId, userId, year = null, month = null) {
-    let query = `
-      SELECT * FROM credit_card_spending
-      WHERE credit_card_id = $1 AND user_id = $2
-    `
-
-    const queryParams = [cardId, userId]
-    let paramIndex = 3
-
-    if (year) {
-      query += ` AND year = $${paramIndex}`
-      queryParams.push(year)
-      paramIndex++
-
-      if (month) {
-        query += ` AND month = $${paramIndex}`
-        queryParams.push(month)
-      }
-    }
-
-    query += ` ORDER BY year DESC, month DESC`
-
-    const result = await pool.query(query, queryParams)
-    return result.rows
+    `;
+    
+    const result = await db.query(query, [id, userId]);
+    return result.rows.length > 0;
   },
 
   /**
    * Get credit card spending by category
-   * @param {String} cardId - Credit card ID
-   * @param {String} userId - User ID (for authorization)
-   * @param {Number} year - Year
-   * @param {Number} month - Month
-   * @returns {Promise<Array>} - Credit card category spending data
+   * @param {string} cardId - Credit card ID
+   * @param {string} userId - User ID
+   * @param {number} year - Year
+   * @param {number} month - Month
+   * @returns {Array} Spending by category
+   */
+  async getCardSpending(cardId, userId, year, month) {
+    const query = `
+      SELECT 
+        COALESCE(c.name, uc.name) as category_name,
+        SUM(t.amount) as amount
+      FROM finance.transactions t
+      LEFT JOIN finance.categories c ON t.category_id = c.id
+      LEFT JOIN finance.user_categories uc ON t.user_category_id = uc.id
+      WHERE t.user_id = $1
+        AND t.credit_card_id = $2
+        AND t.type = 'expense'
+        AND EXTRACT(YEAR FROM t.transaction_date) = $3
+        AND EXTRACT(MONTH FROM t.transaction_date) = $4
+      GROUP BY COALESCE(c.name, uc.name)
+      ORDER BY amount DESC
+    `;
+    
+    const result = await db.query(query, [userId, cardId, year, month]);
+    return result.rows;
+  },
+  
+  /**
+   * Get credit card spending by category
+   * @param {string} cardId - Credit card ID
+   * @param {string} userId - User ID
+   * @param {number} year - Year
+   * @param {number} month - Month
+   * @returns {Array} Spending by category
    */
   async getCardSpendingByCategory(cardId, userId, year, month) {
     const query = `
-      SELECT * FROM credit_card_category_spending
-      WHERE credit_card_id = $1 AND user_id = $2 AND year = $3 AND month = $4
-      ORDER BY total_amount DESC
-    `
-
-    const result = await pool.query(query, [cardId, userId, year, month])
-    return result.rows
+      SELECT 
+        COALESCE(c.name, uc.name) as category_name,
+        SUM(t.amount) as amount
+      FROM finance.transactions t
+      LEFT JOIN finance.categories c ON t.category_id = c.id
+      LEFT JOIN finance.user_categories uc ON t.user_category_id = uc.id
+      WHERE t.user_id = $1
+        AND t.credit_card_id = $2
+        AND t.type = 'expense'
+        AND EXTRACT(YEAR FROM t.transaction_date) = $3
+        AND EXTRACT(MONTH FROM t.transaction_date) = $4
+      GROUP BY COALESCE(c.name, uc.name)
+      ORDER BY amount DESC
+    `;
+    
+    const result = await db.query(query, [userId, cardId, year, month]);
+    return result.rows;
   },
-
+  
   /**
    * Get credit card monthly spending
-   * @param {String} cardId - Credit card ID
-   * @param {String} userId - User ID (for authorization)
-   * @param {Number} year - Year
-   * @returns {Promise<Array>} - Credit card monthly spending data
+   * @param {string} cardId - Credit card ID
+   * @param {string} userId - User ID
+   * @param {number} year - Year
+   * @returns {Array} Monthly spending
    */
   async getCardMonthlySpending(cardId, userId, year) {
     const query = `
-      SELECT * FROM credit_card_spending
-      WHERE credit_card_id = $1 AND user_id = $2 AND year = $3
-      ORDER BY month
-    `
+      WITH months AS (
+        SELECT generate_series(1, 12) as month
+      )
+      SELECT 
+        TO_CHAR(TO_DATE(m.month::text, 'MM'), 'Mon') as month,
+        COALESCE(SUM(t.amount), 0) as amount
+      FROM months m
+      LEFT JOIN finance.transactions t ON 
+        EXTRACT(MONTH FROM t.transaction_date) = m.month
+        AND EXTRACT(YEAR FROM t.transaction_date) = $3
+        AND t.user_id = $1
+        AND t.credit_card_id = $2
+        AND t.type = 'expense'
+      GROUP BY m.month
+      ORDER BY m.month
+    `;
+    
+    const result = await db.query(query, [userId, cardId, year]);
+    return result.rows;
+  }
+};
 
-    const result = await pool.query(query, [cardId, userId, year])
-    return result.rows
-  },
-}
-
-module.exports = CreditModel
-
+module.exports = creditModel;

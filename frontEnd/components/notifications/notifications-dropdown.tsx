@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Bell, CreditCard, PiggyBank, Calendar, Check, ArrowRight } from "lucide-react"
+import { Bell, CreditCard, PiggyBank, Calendar, Check, ArrowRight, AlertCircle } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
@@ -59,9 +60,79 @@ const notifications = [
   },
 ]
 
+// Add budget alert notifications
+const budgetAlerts = [
+  {
+    id: "b1",
+    title: "Housing Budget Alert",
+    description: "You've used 90% of your Housing budget for this month.",
+    date: "2023-06-28",
+    type: "budget",
+    read: false,
+  },
+  {
+    id: "b2",
+    title: "Entertainment Budget Alert",
+    description: "You've used 85% of your Entertainment budget for this month.",
+    date: "2023-06-27",
+    type: "budget",
+    read: false,
+  },
+]
+
+// Combine all notifications
+const allNotifications = [...budgetAlerts, ...notifications]
+
 export function NotificationsDropdown() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [notificationsList, setNotificationsList] = useState(notifications)
+  const [notificationsList, setNotificationsList] = useState(allNotifications)
+
+  // For API integration
+  // const [isLoading, setIsLoading] = useState(false)
+
+  // Fetch notifications from API
+  /*
+  useEffect(() => {
+    async function fetchNotifications() {
+      try {
+        setIsLoading(true)
+        
+        // Fetch regular notifications
+        const notificationsResponse = await api.get("/notifications")
+        
+        // Fetch budget alerts
+        const budgetAlertsResponse = await budgetAPI.getBudgetAlerts()
+        
+        // Combine and sort by date (newest first)
+        const combined = [
+          ...budgetAlertsResponse.data.map(alert => ({
+            id: `budget-${alert.id}`,
+            title: `${alert.category} Budget Alert`,
+            description: `You've used ${alert.percentSpent}% of your ${alert.category} budget for this month.`,
+            date: new Date().toISOString(),
+            type: "budget",
+            read: false
+          })),
+          ...notificationsResponse.data
+        ]
+        
+        // Sort by date (newest first)
+        combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        
+        setNotificationsList(combined)
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (open) {
+      fetchNotifications()
+    }
+  }, [open])
+  */
 
   const unreadCount = notificationsList.filter((n) => !n.read).length
 
@@ -83,9 +154,16 @@ export function NotificationsDropdown() {
         return <PiggyBank className="h-4 w-4 text-green-500" />
       case "credit":
         return <CreditCard className="h-4 w-4 text-purple-500" />
+      case "budget":
+        return <AlertCircle className="h-4 w-4 text-amber-500" />
       default:
         return <Bell className="h-4 w-4 text-gray-500" />
     }
+  }
+
+  const handleViewAll = () => {
+    setOpen(false)
+    router.push("/settings/notifications")
   }
 
   return (
@@ -148,7 +226,7 @@ export function NotificationsDropdown() {
           </DropdownMenuGroup>
         </ScrollArea>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="cursor-pointer justify-center">
+        <DropdownMenuItem className="cursor-pointer justify-center" onClick={handleViewAll}>
           <Button variant="ghost" className="w-full justify-center" size="sm">
             View all notifications
             <ArrowRight className="ml-2 h-4 w-4" />

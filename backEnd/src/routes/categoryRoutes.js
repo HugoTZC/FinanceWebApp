@@ -1,24 +1,25 @@
-const express = require("express")
-const {
-  getCategories,
-  getCategory,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  getCategorySpending,
-} = require("../controllers/categoryController")
-const { protect } = require("../middleware/auth")
+const express = require('express');
+const categoryController = require('../controllers/categoryController');
+const { protect } = require('../middleware/auth');
 
-const router = express.Router()
+const router = express.Router();
 
 // All routes are protected
-router.use(protect)
+router.use(protect);
 
-router.route("/").get(getCategories).post(createCategory)
+// Category routes
+router.get('/default', categoryController.getDefaultCategories);
+router.get('/', categoryController.getAllCategories);
+router.get('/type/:type', categoryController.getCategoriesByType);
 
-router.route("/:id").get(getCategory).put(updateCategory).delete(deleteCategory)
+// User category routes
+router.route('/user')
+  .get(categoryController.getUserCategories)
+  .post(categoryController.createUserCategory);
 
-router.get("/spending", getCategorySpending)
+router.route('/user/:id')
+  .get(categoryController.getUserCategory)
+  .patch(categoryController.updateUserCategory)
+  .delete(categoryController.deleteUserCategory);
 
-module.exports = router
-
+module.exports = router;

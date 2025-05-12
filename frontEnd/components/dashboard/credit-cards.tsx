@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { CreditCard } from "lucide-react"
+import { creditAPI } from "@/lib/api"
 import { AddCreditDialog } from "@/components/credit/add-credit-dialog"
 import { CreditCardSpending } from "@/components/credit/credit-card-spending"
 
@@ -103,75 +105,135 @@ const loans: Loan[] = [
 
 export function CreditCards() {
   const [activeTab, setActiveTab] = useState("cards")
-
-  // State for API data
-  // const [apiCreditCards, setApiCreditCards] = useState<CreditCardType[]>([]);
-  // const [apiLoans, setApiLoans] = useState<Loan[]>([]);
-  // const [isLoading, setIsLoading] = useState(false);
+  const [apiCreditCards, setApiCreditCards] = useState<CreditCardType[]>([])
+  const [apiLoans, setApiLoans] = useState<Loan[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
   // Fetch credit cards from API
-  // useEffect(() => {
-  //   async function fetchCreditCards() {
-  //     try {
-  //       setIsLoading(true);
-  //       const response = await creditAPI.getCards();
-  //       setApiCreditCards(response.data);
-  //     } catch (error) {
-  //       console.error("Failed to fetch credit cards:", error);
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   }
-  //
-  //   fetchCreditCards();
-  // }, []);
+  async function fetchCreditCards() {
+    try {
+      setIsLoading(true)
+      console.log('🔍 Fetching credit cards...')
+      const response = await creditAPI.getCards()
+      console.log('📊 Got response:', response)
+      
+      // Transform the data to match our frontend types
+      interface APICardData {
+        id?: string;
+        name?: string;
+        last_four?: string;
+        balance?: string | number;
+        credit_limit?: string | number;
+        due_date?: string;
+        min_payment?: string | number;
+        interest_rate?: string | number;
+      }
+
+      interface APIResponse {
+        data?: {
+          data?: {
+        cards?: APICardData[];
+          };
+        };
+      }
+
+      const transformedCards: CreditCardType[] = (response?.data?.data?.cards || []).map((card: APICardData) => ({
+        id: card.id || '',
+        name: card.name || '',
+        lastFour: card.last_four || '',
+        balance: typeof card.balance === 'string' ? parseFloat(card.balance) : (typeof card.balance === 'number' ? card.balance : 0),
+        limit: typeof card.credit_limit === 'string' ? parseFloat(card.credit_limit) : (typeof card.credit_limit === 'number' ? card.credit_limit : 0),
+        dueDate: card.due_date || new Date().toISOString(),
+        minPayment: typeof card.min_payment === 'string' ? parseFloat(card.min_payment) : (typeof card.min_payment === 'number' ? card.min_payment : 0),
+        interestRate: typeof card.interest_rate === 'string' ? parseFloat(card.interest_rate) : (typeof card.interest_rate === 'number' ? card.interest_rate : 0)
+      }))
+      
+      setApiCreditCards(transformedCards)
+      console.log('💳 Updated cards state:', transformedCards)
+    } catch (error) {
+      console.error("❌ Failed to fetch credit cards:", error)
+      setApiCreditCards([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Fetch loans from API
-  // useEffect(() => {
-  //   async function fetchLoans() {
-  //     try {
-  //       setIsLoading(true);
-  //       const response = await creditAPI.getLoans();
-  //       setApiLoans(response.data);
-  //     } catch (error) {
-  //       console.error("Failed to fetch loans:", error);
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   }
-  //
-  //   fetchLoans();
-  // }, []);
+  async function fetchLoans() {
+    try {
+      setIsLoading(true)
+      console.log('🔍 Fetching loans...')
+      const response = await creditAPI.getLoans()
+      console.log('📊 Got loans response:', response)
+      
+      // Transform the data to match our frontend types
+      const transformedLoans = (response?.data?.data?.loans || []).map((loan: any) => ({
+        id: loan.id || '',
+        name: loan.name || '',
+        balance: typeof loan.balance === 'string' ? parseFloat(loan.balance) : (typeof loan.balance === 'number' ? loan.balance : 0),
+        originalAmount: typeof loan.original_amount === 'string' ? parseFloat(loan.original_amount) : (typeof loan.original_amount === 'number' ? loan.original_amount : 0),
+        interestRate: typeof loan.interest_rate === 'string' ? parseFloat(loan.interest_rate) : (typeof loan.interest_rate === 'number' ? loan.interest_rate : 0),
+        monthlyPayment: typeof loan.monthly_payment === 'string' ? parseFloat(loan.monthly_payment) : (typeof loan.monthly_payment === 'number' ? loan.monthly_payment : 0),
+        dueDate: loan.due_date || new Date().toISOString(),
+        term: loan.term || '',
+        bankNumber: loan.bank_number || ''
+      }))
+      
+      setApiLoans(transformedLoans)
+      console.log('💰 Updated loans state:', transformedLoans)
+    } catch (error) {
+      console.error("❌ Failed to fetch loans:", error)
+      setApiLoans([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Function to refresh data when a new card/loan is added
+  const handleAddSuccess = () => {
+    if (activeTab === "cards") {
+      fetchCreditCards()
+    } else {
+      fetchLoans()
+    }
+  }
+
+  // Initial data fetch
+  useEffect(() => {
+    if (activeTab === "cards") {
+      fetchCreditCards()
+    } else {
+      fetchLoans()
+    }
+  }, [activeTab])
 
   // Function to handle card deletion
-  // async function handleDeleteCard(id: string) {
-  //   if (confirm("Are you sure you want to delete this credit card?")) {
-  //     try {
-  //       await creditAPI.deleteCard(id);
-  //       // Refresh the list
-  //       const response = await creditAPI.getCards();
-  //       setApiCreditCards(response.data);
-  //     } catch (error) {
-  //       console.error("Failed to delete credit card:", error);
-  //       alert("Failed to delete credit card. Please try again.");
-  //     }
-  //   }
-  // }
+  async function handleDeleteCard(id: string) {
+    if (confirm("Are you sure you want to delete this credit card?")) {
+      try {
+        await creditAPI.deleteCard(id)
+        // Refresh the list
+        fetchCreditCards()
+      } catch (error) {
+        console.error("Failed to delete credit card:", error)
+        alert("Failed to delete credit card. Please try again.")
+      }
+    }
+  }
 
   // Function to handle loan deletion
-  // async function handleDeleteLoan(id: string) {
-  //   if (confirm("Are you sure you want to delete this loan?")) {
-  //     try {
-  //       await creditAPI.deleteLoan(id);
-  //       // Refresh the list
-  //       const response = await creditAPI.getLoans();
-  //       setApiLoans(response.data);
-  //     } catch (error) {
-  //       console.error("Failed to delete loan:", error);
-  //       alert("Failed to delete loan. Please try again.");
-  //     }
-  //   }
-  // }
+  async function handleDeleteLoan(id: string) {
+    if (confirm("Are you sure you want to delete this loan?")) {
+      try {
+        await creditAPI.deleteLoan(id)
+        // Refresh the list
+        fetchLoans()
+      } catch (error) {
+        console.error("Failed to delete loan:", error)
+        alert("Failed to delete loan. Please try again.")
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -183,212 +245,184 @@ export function CreditCards() {
         </TabsList>
 
         <TabsContent value="cards" className="space-y-4">
-          {/* {isLoading ? (
+          {isLoading && (
             <div className="flex justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : null} */}
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Use API data when backend is ready */}
-            {/* {apiCreditCards.length > 0 
-              ? apiCreditCards.map((card) => {
-                  const utilizationPercent = Math.round((card.balance / card.limit) * 100);
-                  const dueDate = new Date(card.dueDate).toLocaleDateString();
-                  
-                  return (
-                    <Card key={card.id}>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="h-4 w-4" />
-                            <CardTitle className="text-sm font-medium">{card.name}</CardTitle>
-                          </div>
-                          <CardDescription>**** {card.lastFour}</CardDescription>
+            {!isLoading && apiCreditCards.length === 0 ? (
+              <div className="md:col-span-2 text-center p-8 border rounded-lg border-dashed">
+                <CreditCard className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">No Credit Cards Added</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  You haven't added any credit cards yet. Add your first credit card to start tracking.
+                </p>
+              </div>
+            ) : (
+              apiCreditCards.map((card) => {
+                const utilizationPercent = Math.round((card.balance / card.limit) * 100)
+                const dueDate = new Date(card.dueDate).toLocaleDateString()
+                
+                return (
+                  <Card key={card.id} className="border border-border dark:border-opacity-70">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4" />
+                          <CardTitle className="text-sm font-medium">{card.name}</CardTitle>
                         </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-sm font-medium">Balance</span>
-                            <span className="text-sm font-medium">
-                              ${card.balance.toFixed(2)} / ${card.limit.toFixed(2)}
-                            </span>
-                          </div>
-                          <Progress value={utilizationPercent} className="h-2" />
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>{utilizationPercent}% utilization</span>
-                            <span>${(card.limit - card.balance).toFixed(2)} available</span>
-                          </div>
+                        <CardDescription>**** {card.lastFour}</CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Balance</span>
+                          <span className="text-sm font-medium">
+                            ${card.balance.toFixed(2)} / ${card.limit.toFixed(2)}
+                          </span>
                         </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <div className="text-muted-foreground">Due Date</div>
-                            <div>{dueDate}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Min Payment</div>
-                            <div>${card.minPayment.toFixed(2)}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Interest Rate</div>
-                            <div>{card.interestRate}%</div>
-                          </div>
+                        <Progress value={utilizationPercent} className="h-2" />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{utilizationPercent}% utilization</span>
+                          <span>${(card.limit - card.balance).toFixed(2)} available</span>
                         </div>
-                        
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              // Handle edit functionality
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteCard(card.id)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              : creditCards.map((card) => {
-                  // ... existing mock data rendering
-                })
-            } */}
+                      </div>
 
-            {/* For now, use mock data */}
-            {creditCards.map((card) => {
-              const utilizationPercent = Math.round((card.balance / card.limit) * 100)
-              const dueDate = new Date(card.dueDate).toLocaleDateString()
-
-              return (
-                <Card key={card.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" />
-                        <CardTitle className="text-sm font-medium">{card.name}</CardTitle>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Due Date</div>
+                          <div>{dueDate}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Min Payment</div>
+                          <div>${card.minPayment.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Interest Rate</div>
+                          <div>{card.interestRate}%</div>
+                        </div>
                       </div>
-                      <CardDescription>**** {card.lastFour}</CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Balance</span>
-                        <span className="text-sm font-medium">
-                          ${card.balance.toFixed(2)} / ${card.limit.toFixed(2)}
-                        </span>
+                      
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            // Handle edit functionality
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleDeleteCard(card.id)}
+                        >
+                          Delete
+                        </Button>
                       </div>
-                      <Progress value={utilizationPercent} className="h-2" />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{utilizationPercent}% utilization</span>
-                        <span>${(card.limit - card.balance).toFixed(2)} available</span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <div className="text-muted-foreground">Due Date</div>
-                        <div>{dueDate}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Min Payment</div>
-                        <div>${card.minPayment.toFixed(2)}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Interest Rate</div>
-                        <div>{card.interestRate}%</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+                    </CardContent>
+                  </Card>
+                )
+              })
+            )}
           </div>
 
-          <AddCreditDialog />
+          <AddCreditDialog onSuccess={handleAddSuccess} />
         </TabsContent>
 
         <TabsContent value="loans" className="space-y-4">
-          {/* {isLoading ? (
+          {isLoading && (
             <div className="flex justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : null} */}
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Use API data when backend is ready */}
-            {/* {apiLoans.length > 0 
-              ? apiLoans.map((loan) => {
-                  // ... API data rendering
-                })
-              : loans.map((loan) => {
-                  // ... existing mock data rendering
-                })
-            } */}
+            {!isLoading && apiLoans.length === 0 ? (
+              <div className="md:col-span-2 text-center p-8 border rounded-lg border-dashed">
+                <CreditCard className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">No Loans Added</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  You haven't added any loans yet. Add your first loan to start tracking.
+                </p>
+              </div>
+            ) : (
+              apiLoans.map((loan) => {
+                const paidPercent = Math.round(((loan.originalAmount - loan.balance) / loan.originalAmount) * 100)
+                const dueDate = new Date(loan.dueDate).toLocaleDateString()
 
-            {/* For now, use mock data */}
-            {loans.map((loan) => {
-              const paidPercent = Math.round(((loan.originalAmount - loan.balance) / loan.originalAmount) * 100)
-              const dueDate = new Date(loan.dueDate).toLocaleDateString()
+                return (
+                  <Card key={loan.id} className="border border-border dark:border-opacity-70">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-sm font-medium">{loan.name}</CardTitle>
+                        <CardDescription>#{loan.bankNumber.slice(-4)}</CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Paid Off</span>
+                          <span className="text-sm font-medium">
+                            ${(loan.originalAmount - loan.balance).toFixed(2)} / ${loan.originalAmount.toFixed(2)}
+                          </span>
+                        </div>
+                        <Progress value={paidPercent} className="h-2" />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{paidPercent}% paid</span>
+                          <span>${loan.balance.toFixed(2)} remaining</span>
+                        </div>
+                      </div>
 
-              return (
-                <Card key={loan.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                      <CardTitle className="text-sm font-medium">{loan.name}</CardTitle>
-                      <CardDescription>#{loan.bankNumber.slice(-4)}</CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Paid Off</span>
-                        <span className="text-sm font-medium">
-                          ${(loan.originalAmount - loan.balance).toFixed(2)} / ${loan.originalAmount.toFixed(2)}
-                        </span>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Due Date</div>
+                          <div>{dueDate}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Monthly Payment</div>
+                          <div>${loan.monthlyPayment.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Interest Rate</div>
+                          <div>{loan.interestRate}%</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Term</div>
+                          <div>{loan.term}</div>
+                        </div>
                       </div>
-                      <Progress value={paidPercent} className="h-2" />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{paidPercent}% paid</span>
-                        <span>${loan.balance.toFixed(2)} remaining</span>
+                      
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            // Handle edit functionality
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleDeleteLoan(loan.id)}
+                        >
+                          Delete
+                        </Button>
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <div className="text-muted-foreground">Due Date</div>
-                        <div>{dueDate}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Monthly Payment</div>
-                        <div>${loan.monthlyPayment.toFixed(2)}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Interest Rate</div>
-                        <div>{loan.interestRate}%</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Term</div>
-                        <div>{loan.term}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+                    </CardContent>
+                  </Card>
+                )
+              })
+            )}
           </div>
 
-          <AddCreditDialog />
+          <AddCreditDialog onSuccess={handleAddSuccess} />
         </TabsContent>
 
         <TabsContent value="spending" className="space-y-4">

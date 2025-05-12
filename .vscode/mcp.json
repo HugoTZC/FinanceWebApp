@@ -1,0 +1,12 @@
+{
+    "servers": {
+        "localhost": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-postgres",
+                "postgresql://hugotzc:dbaaccess@localhost:5432/financeDB?search_path=finance"
+            ]
+        }
+    }
+}

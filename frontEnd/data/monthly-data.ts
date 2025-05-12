@@ -1,0 +1,51 @@
+export const monthlyData = {
+  Jan: [
+    { name: "Housing", value: 1700, color: "#4ade80" },
+    { name: "Food", value: 750, color: "#60a5fa" },
+    { name: "Transportation", value: 550, color: "#f87171" },
+    { name: "Entertainment", value: 350, color: "#fbbf24" },
+    { name: "Utilities", value: 320, color: "#a78bfa" },
+    { name: "Other", value: 230, color: "#fb923c" },
+  ],
+  Feb: [
+    { name: "Housing", value: 1750, color: "#4ade80" },
+    { name: "Food", value: 780, color: "#60a5fa" },
+    { name: "Transportation", value: 580, color: "#f87171" },
+    { name: "Entertainment", value: 380, color: "#fbbf24" },
+    { name: "Utilities", value: 330, color: "#a78bfa" },
+    { name: "Other", value: 240, color: "#fb923c" },
+  ],
+  Mar: [
+    { name: "Housing", value: 1800, color: "#4ade80" },
+    { name: "Food", value: 800, color: "#60a5fa" },
+    { name: "Transportation", value: 600, color: "#f87171" },
+    { name: "Entertainment", value: 400, color: "#fbbf24" },
+    { name: "Utilities", value: 350, color: "#a78bfa" },
+    { name: "Other", value: 250, color: "#fb923c" },
+  ],
+  Apr: [
+    { name: "Housing", value: 1850, color: "#4ade80" },
+    { name: "Food", value: 820, color: "#60a5fa" },
+    { name: "Transportation", value: 620, color: "#f87171" },
+    { name: "Entertainment", value: 420, color: "#fbbf24" },
+    { name: "Utilities", value: 360, color: "#a78bfa" },
+    { name: "Other", value: 260, color: "#fb923c" },
+  ],
+  May: [
+    { name: "Housing", value: 1800, color: "#4ade80" },
+    { name: "Food", value: 790, color: "#60a5fa" },
+    { name: "Transportation", value: 590, color: "#f87171" },
+    { name: "Entertainment", value: 390, color: "#fbbf24" },
+    { name: "Utilities", value: 340, color: "#a78bfa" },
+    { name: "Other", value: 240, color: "#fb923c" },
+  ],
+  Jun: [
+    { name: "Housing", value: 1800, color: "#4ade80" },
+    { name: "Food", value: 800, color: "#60a5fa" },
+    { name: "Transportation", value: 600, color: "#f87171" },
+    { name: "Entertainment", value: 400, color: "#fbbf24" },
+    { name: "Utilities", value: 350, color: "#a78bfa" },
+    { name: "Other", value: 250, color: "#fb923c" },
+  ],
+}
+

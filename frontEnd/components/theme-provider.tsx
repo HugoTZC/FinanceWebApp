@@ -30,27 +30,38 @@ export function ThemeProvider({
   storageKey = "theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => (localStorage?.getItem(storageKey) as Theme) || defaultTheme)
+  const [theme, setTheme] = useState<Theme>(() => {
+    // Check if we're in the browser environment
+    if (typeof window !== "undefined") {
+      return (localStorage?.getItem(storageKey) as Theme) || defaultTheme
+    }
+    // Return default theme on server
+    return defaultTheme
+  })
 
   useEffect(() => {
     const root = window.document.documentElement
+    const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
 
     // Remove both classes first
     root.classList.remove("light", "dark")
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-      root.classList.add(systemTheme)
-      return
-    }
+    // Add the appropriate class
+    root.classList.add(isDark ? "dark" : "light")
 
-    root.classList.add(theme)
+    // Also add bg-background to ensure the background color is applied
+    root.classList.add("bg-background")
+
+    // Set a transition for smoother theme changes
+    root.style.colorScheme = isDark ? "dark" : "light"
   }, [theme])
 
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      localStorage?.setItem(storageKey, theme)
+      if (typeof window !== "undefined") {
+        localStorage?.setItem(storageKey, theme)
+      }
       setTheme(theme)
     },
   }

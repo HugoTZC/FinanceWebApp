@@ -17,7 +17,7 @@ const AnalysisModel = {
     const currentMonth = month || currentDate.getMonth() + 1
 
     const query = `
-      SELECT * FROM get_budget_analysis($1, $2, $3)
+      SELECT * FROM dbo.get_budget_analysis($1, $2, $3)
     `
 
     const result = await pool.query(query, [userId, currentYear, currentMonth])
@@ -32,7 +32,7 @@ const AnalysisModel = {
    */
   async getWeeklyAnalysis(userId, weeksBack = 4) {
     const query = `
-      SELECT * FROM get_weekly_analysis($1, $2)
+      SELECT * FROM dbo.get_weekly_analysis($1, $2)
     `
 
     const result = await pool.query(query, [userId, weeksBack])
@@ -47,7 +47,7 @@ const AnalysisModel = {
    */
   async getUpcomingDueDates(userId, days = 7) {
     const query = `
-      SELECT * FROM get_upcoming_due_dates($1, $2)
+      SELECT * FROM dbo.get_upcoming_due_dates($1, $2)
       ORDER BY days_until_due
     `
 
@@ -71,10 +71,10 @@ const AnalysisModel = {
           COALESCE(SUM(cc.min_payment), 0) + 
           COALESCE(SUM(l.monthly_payment), 0)
         ) AS total
-      FROM users u
-      LEFT JOIN recurring_payments rp ON u.id = rp.user_id
-      LEFT JOIN credit_cards cc ON u.id = cc.user_id
-      LEFT JOIN loans l ON u.id = l.user_id
+      FROM dbo.users u
+      LEFT JOIN dbo.recurring_payments rp ON u.id = rp.user_id
+      LEFT JOIN dbo.credit_cards cc ON u.id = cc.user_id
+      LEFT JOIN dbo.loans l ON u.id = l.user_id
       WHERE u.id = $1
     `
 
@@ -100,11 +100,11 @@ const AnalysisModel = {
       )
       SELECT 
         to_char(m.month_start, 'Mon') AS month,
-        EXTRACT(YEAR FROM m.month_start) AS year,
+        EXTRACT(YEAR FROM dbo.m.month_start) AS year,
         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0) AS income,
         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) AS expenses
-      FROM months m
-      LEFT JOIN transactions t ON 
+      FROM dbo.months m
+      LEFT JOIN dbo.transactions t ON 
         t.user_id = $1 AND
         date_trunc('month', t.transaction_date) = m.month_start
       GROUP BY m.month_start

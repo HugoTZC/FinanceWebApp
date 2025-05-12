@@ -129,7 +129,7 @@ export function SavingsOverview() {
     const category = isRecurring ? (item as RecurringPayment).category : null
 
     return (
-      <Card key={item.id}>
+      <Card key={item.id} className="border border-border dark:border-opacity-70">
         <CardHeader className="pb-2">
           <div className="flex justify-between">
             <CardTitle className="text-sm font-medium">{item.name}</CardTitle>

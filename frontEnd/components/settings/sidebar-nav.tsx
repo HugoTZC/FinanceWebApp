@@ -15,6 +15,10 @@ const items = [
     href: "/settings",
   },
   {
+    title: "Categories",
+    href: "/settings/categories",
+  },
+  {
     title: "Appearance",
     href: "/settings/appearance",
   },

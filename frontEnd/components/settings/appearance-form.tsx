@@ -88,18 +88,18 @@ export function AppearanceForm() {
               <Label className={`[&:has([data-state=checked])>div]:border-primary cursor-pointer`}>
                 <RadioGroupItem value="dark" className="sr-only" />
                 <div className="items-center rounded-md border-2 border-muted p-1 hover:border-accent">
-                  <div className="space-y-2 rounded-sm bg-[#1F1F1F] p-2">
-                    <div className="space-y-2 rounded-md bg-[#2B2B2B] p-2 shadow-sm">
-                      <div className="h-2 w-[80px] rounded-lg bg-[#444444]" />
-                      <div className="h-2 w-[100px] rounded-lg bg-[#444444]" />
+                  <div className="space-y-2 rounded-sm bg-[#1A1B26] p-2">
+                    <div className="space-y-2 rounded-md bg-[#24283B] p-2 shadow-sm">
+                      <div className="h-2 w-[80px] rounded-lg bg-[#565F89]" />
+                      <div className="h-2 w-[100px] rounded-lg bg-[#565F89]" />
                     </div>
-                    <div className="flex items-center space-x-2 rounded-md bg-[#2B2B2B] p-2 shadow-sm">
-                      <div className="h-4 w-4 rounded-full bg-[#444444]" />
-                      <div className="h-2 w-[100px] rounded-lg bg-[#444444]" />
+                    <div className="flex items-center space-x-2 rounded-md bg-[#24283B] p-2 shadow-sm">
+                      <div className="h-4 w-4 rounded-full bg-[#565F89]" />
+                      <div className="h-2 w-[100px] rounded-lg bg-[#565F89]" />
                     </div>
-                    <div className="flex items-center space-x-2 rounded-md bg-[#2B2B2B] p-2 shadow-sm">
-                      <div className="h-4 w-4 rounded-full bg-[#444444]" />
-                      <div className="h-2 w-[100px] rounded-lg bg-[#444444]" />
+                    <div className="flex items-center space-x-2 rounded-md bg-[#24283B] p-2 shadow-sm">
+                      <div className="h-4 w-4 rounded-full bg-[#565F89]" />
+                      <div className="h-2 w-[100px] rounded-lg bg-[#565F89]" />
                     </div>
                   </div>
                 </div>
