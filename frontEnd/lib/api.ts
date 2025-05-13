@@ -131,6 +131,10 @@ api.interceptors.request.use(
       console.log("[API] No token in localStorage, relying on cookies for authentication");
     }
     
+    // For debugging authentication issues
+    console.log("[API] Request headers:", JSON.stringify(config.headers));
+    console.log("[API] withCredentials:", config.withCredentials);
+    
     // If we're using mock data in development, intercept specific endpoints
     if (USE_MOCK_DATA && config.url) {
       // Log intercepted request
@@ -454,6 +458,19 @@ export const savingsAPI = {
   },
   deleteGoal: (id: string) => {
     return api.delete(`/savings/goals/${id}`)
+  },
+  // Recurring Payments
+  getRecurringPayments: () => {
+    return api.get("/savings/recurring")
+  },
+  createRecurringPayment: (data: any) => {
+    return api.post("/savings/recurring", data)
+  },
+  updateRecurringPayment: (id: string, data: any) => {
+    return api.patch(`/savings/recurring/${id}`, data)
+  },
+  deleteRecurringPayment: (id: string) => {
+    return api.delete(`/savings/recurring/${id}`)
   },
 }
 

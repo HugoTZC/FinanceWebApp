@@ -1,10 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AddSavingsDialog } from "@/components/savings/add-savings-dialog"
+import { savingsAPI } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
+import { differenceInWeeks } from "date-fns"
 
 // Update the SavingsGoal interface to include weekly calculation
 interface SavingsGoal {
@@ -28,98 +31,89 @@ interface RecurringPayment {
   weeklyTarget?: number
 }
 
-// Update the savingsGoals array to include weekly targets
-const savingsGoals: SavingsGoal[] = [
-  {
-    id: "s1",
-    name: "Emergency Fund",
-    target: 10000,
-    current: 5000,
-    dueDate: "2023-12-31",
-    weeklyTarget: 192.31, // Calculated based on weeks until due date
-  },
-  {
-    id: "s2",
-    name: "Vacation",
-    target: 3000,
-    current: 1500,
-    dueDate: "2023-08-15",
-    weeklyTarget: 214.29, // Calculated based on weeks until due date
-  },
-  {
-    id: "s3",
-    name: "New Car",
-    target: 20000,
-    current: 8000,
-    dueDate: "2024-06-30",
-    weeklyTarget: 230.77, // Calculated based on weeks until due date
-  },
-  {
-    id: "s4",
-    name: "Home Down Payment",
-    target: 50000,
-    current: 15000,
-    dueDate: "2025-01-15",
-    weeklyTarget: 481.48, // Calculated based on weeks until due date
-  },
-]
-
-// Update the recurringPayments array to match the savings goal structure
-const recurringPayments: RecurringPayment[] = [
-  {
-    id: "r1",
-    name: "Mortgage",
-    amount: 1500,
-    current: 500, // Example: already saved $500 towards this month's payment
-    dueDate: "2023-07-01",
-    frequency: "monthly",
-    category: "Housing",
-    weeklyTarget: 250, // Need to save $250/week to meet the payment
-  },
-  {
-    id: "r2",
-    name: "Car Payment",
-    amount: 350,
-    current: 150,
-    dueDate: "2023-07-15",
-    frequency: "monthly",
-    category: "Transportation",
-    weeklyTarget: 50,
-  },
-  {
-    id: "r3",
-    name: "Student Loan",
-    amount: 250,
-    current: 100,
-    dueDate: "2023-07-21",
-    frequency: "monthly",
-    category: "Education",
-    weeklyTarget: 37.5,
-  },
-  {
-    id: "r4",
-    name: "Internet",
-    amount: 80,
-    current: 0,
-    dueDate: "2023-07-05",
-    frequency: "monthly",
-    category: "Utilities",
-    weeklyTarget: 20,
-  },
-  {
-    id: "r5",
-    name: "Phone Bill",
-    amount: 65,
-    current: 30,
-    dueDate: "2023-07-10",
-    frequency: "monthly",
-    category: "Utilities",
-    weeklyTarget: 8.75,
-  },
-]
-
 export function SavingsOverview() {
   const [activeTab, setActiveTab] = useState("goals")
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([])
+  const [recurringPayments, setRecurringPayments] = useState<RecurringPayment[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const { toast } = useToast()
+
+  // Fetch both savings goals and recurring payments from the backend
+  useEffect(() => {
+    fetchSavingsData()
+  }, [refreshTrigger]) // Add refreshTrigger to dependencies
+
+  // This function will be used to refresh data after adding a new goal or payment
+  const fetchSavingsData = async () => {
+    setIsLoading(true)
+    try {
+      // Fetch savings goals
+      const goalsResponse = await savingsAPI.getGoals()
+      if (goalsResponse?.data?.data?.goals) {
+        // Transform the data to match our frontend types
+        const transformedGoals = goalsResponse.data.data.goals.map((goal: any) => {
+          // Calculate weekly target
+          const targetDate = new Date(goal.target_date)
+          const today = new Date()
+          const weeksUntilDue = Math.max(1, differenceInWeeks(targetDate, today))
+          const amountNeeded = parseFloat(goal.target_amount) - parseFloat(goal.current_amount)
+          const weeklyTarget = amountNeeded > 0 ? amountNeeded / weeksUntilDue : 0
+
+          return {
+            id: goal.id,
+            name: goal.name,
+            target: parseFloat(goal.target_amount),
+            current: parseFloat(goal.current_amount),
+            dueDate: goal.target_date,
+            weeklyTarget: weeklyTarget
+          }
+        })
+        setSavingsGoals(transformedGoals)
+      }
+
+      // Fetch recurring payments
+      const paymentsResponse = await savingsAPI.getRecurringPayments()
+      if (paymentsResponse?.data?.data?.payments) {
+        // Transform the data to match our frontend types
+        const transformedPayments = paymentsResponse.data.data.payments.map((payment: any) => {
+          // Calculate weekly target
+          const dueDate = new Date(payment.due_date)
+          const today = new Date()
+          const weeksUntilDue = Math.max(1, differenceInWeeks(dueDate, today))
+          const amountNeeded = parseFloat(payment.amount) - parseFloat(payment.current_amount)
+          const weeklyTarget = amountNeeded > 0 ? amountNeeded / weeksUntilDue : 0
+
+          return {
+            id: payment.id,
+            name: payment.name,
+            amount: parseFloat(payment.amount),
+            current: parseFloat(payment.current_amount),
+            dueDate: payment.due_date,
+            frequency: payment.frequency,
+            category: payment.category,
+            weeklyTarget: weeklyTarget
+          }
+        })
+        setRecurringPayments(transformedPayments)
+      }
+    } catch (error) {
+      console.error("Failed to fetch savings data:", error)
+      toast({
+        title: "Failed to load",
+        description: "Could not load savings data. Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Function to refresh data after a new item has been added
+  const handleRefresh = () => {
+    // Increment refresh trigger to force useEffect to run again
+    setRefreshTrigger(prev => prev + 1)
+  }
 
   // Function to render a savings card (used for both goals and recurring payments)
   const renderSavingsCard = (item: SavingsGoal | RecurringPayment, isRecurring = false) => {
@@ -168,17 +162,29 @@ export function SavingsOverview() {
         </TabsList>
 
         <TabsContent value="goals" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">{savingsGoals.map((goal) => renderSavingsCard(goal))}</div>
+          {isLoading ? (
+            <div className="text-center py-4">Loading savings goals...</div>
+          ) : savingsGoals.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">{savingsGoals.map((goal) => renderSavingsCard(goal))}</div>
+          ) : (
+            <div className="text-center py-4">No savings goals found. Add one below!</div>
+          )}
 
-          <AddSavingsDialog />
+          <AddSavingsDialog onSuccess={handleRefresh} />
         </TabsContent>
 
         <TabsContent value="recurring" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {recurringPayments.map((payment) => renderSavingsCard(payment, true))}
-          </div>
+          {isLoading ? (
+            <div className="text-center py-4">Loading recurring payments...</div>
+          ) : recurringPayments.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {recurringPayments.map((payment) => renderSavingsCard(payment, true))}
+            </div>
+          ) : (
+            <div className="text-center py-4">No recurring payments found. Add one below!</div>
+          )}
 
-          <AddSavingsDialog />
+          <AddSavingsDialog onSuccess={handleRefresh} />
         </TabsContent>
       </Tabs>
     </div>

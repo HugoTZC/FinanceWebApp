@@ -7,11 +7,31 @@ const { AppError } = require('../utils/helpers');
  */
 exports.createSavingsGoal = async (req, res, next) => {
   try {
+    // Check if user is properly authenticated
+    if (!req.user || !req.user.id) {
+      console.error('Authentication error: User ID not found in request');
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Authentication error: User ID not found in request'
+      });
+    }
+    
     const userId = req.user.id;
+    console.log(`Creating savings goal for user ID: ${userId}`);
+    
     const { 
       name, target_amount, current_amount, 
       start_date, target_date 
     } = req.body;
+    
+    console.log('Received savings goal data:', {
+      user_id: userId,
+      name,
+      target_amount,
+      current_amount,
+      start_date,
+      target_date
+    });
     
     // Create savings goal
     const goal = await savingsModel.createSavingsGoal({
@@ -23,6 +43,8 @@ exports.createSavingsGoal = async (req, res, next) => {
       target_date
     });
     
+    console.log('Savings goal created successfully:', goal);
+    
     res.status(201).json({
       status: 'success',
       data: {
@@ -30,6 +52,7 @@ exports.createSavingsGoal = async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error('Error creating savings goal:', error);
     next(error);
   }
 };

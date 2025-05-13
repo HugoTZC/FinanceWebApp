@@ -22,12 +22,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { savingsAPI } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 
-export function AddSavingsDialog() {
+export function AddSavingsDialog({ onSuccess }: { onSuccess?: () => void }) {
   const [open, setOpen] = useState(false)
   const [savingsType, setSavingsType] = useState("goal")
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
   // Common fields
   const [name, setName] = useState("")
@@ -65,57 +68,122 @@ export function AddSavingsDialog() {
 
     // Validate form
     if (!name || !targetAmount || !dueDate) {
-      alert("Please fill in all required fields")
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
       return
     }
 
-    // Create savings object based on type
-    const savingsData = {
-      type: savingsType,
-      name,
-      target: Number.parseFloat(targetAmount),
-      current: currentAmount ? Number.parseFloat(currentAmount) : 0,
-      dueDate,
-      weeklyTarget: weeklyTarget ? Number.parseFloat(weeklyTarget) : 0,
-      ...(savingsType === "recurring"
-        ? {
-            category,
-            frequency,
-          }
-        : {}),
+    try {
+      setIsLoading(true)
+
+      // Check if user is authenticated before making the request
+      const token = localStorage.getItem("token")
+      if (!token) {
+        console.error("Authentication error: No token found")
+        toast({
+          title: "Authentication Error",
+          description: "You must be logged in to create a savings goal",
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (savingsType === "goal") {
+        // Format data for savings goal API
+        const goalData = {
+          name,
+          target_amount: Number.parseFloat(targetAmount),
+          current_amount: currentAmount ? Number.parseFloat(currentAmount) : 0,
+          start_date: new Date().toISOString().split('T')[0], // Make sure start date is included
+          target_date: dueDate.toISOString().split('T')[0]
+        }
+
+        console.log('Sending savings goal data:', goalData);
+
+        try {
+          // Send data to the backend
+          const response = await savingsAPI.createGoal(goalData);
+          console.log('Savings goal creation response:', response);
+          
+          toast({
+            title: "Success",
+            description: "Savings goal has been created successfully",
+          });
+        } catch (error: any) {
+          console.error('Error creating savings goal:', error);
+          console.error('Error response details:', error.response?.data);
+          console.error('Error status:', error.response?.status);
+          console.error('Error headers:', error.response?.headers);
+          throw error;
+        }
+      } else {
+        // Format data for recurring payment API
+        const paymentData = {
+          name,
+          amount: Number.parseFloat(targetAmount),
+          current_amount: currentAmount ? Number.parseFloat(currentAmount) : 0,
+          due_date: dueDate.toISOString().split('T')[0],
+          frequency,
+          category
+        }
+
+        console.log('Sending recurring payment data:', paymentData);
+
+        try {
+          // Send data to the backend
+          const response = await savingsAPI.createRecurringPayment(paymentData);
+          console.log('Recurring payment creation response:', response);
+          
+          toast({
+            title: "Success",
+            description: "Recurring payment has been created successfully",
+          });
+        } catch (error: any) {
+          console.error('Error creating recurring payment:', error);
+          console.error('Error response details:', error.response?.data);
+          console.error('Error status:', error.response?.status);
+          console.error('Error headers:', error.response?.headers);
+          throw error;
+        }
+      }
+
+      // Close the dialog after submission
+      setOpen(false)
+
+      // Reset the form
+      resetForm()
+
+      // Call the onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess()
+      }
+    } catch (error: any) {
+      console.error(`Failed to add ${savingsType === "goal" ? "savings goal" : "recurring payment"}:`, error);
+      
+      // Display more detailed error message if available
+      let errorMessage = `Failed to create ${savingsType === "goal" ? "savings goal" : "recurring payment"}. Please try again.`;
+      
+      if (error.response) {
+        if (error.response.status === 401) {
+          errorMessage = "Authentication error: You need to be logged in.";
+        } else if (error.response.status === 500) {
+          errorMessage = "Server error: Something went wrong on our end. Please try again or contact support.";
+        } else if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        }
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
     }
-
-    // In a real app, you would send this data to your API
-    console.log(savingsData)
-
-    // API integration (commented out until backend is ready)
-    // try {
-    //   setIsLoading(true);
-    //
-    //   if (savingsType === "goal") {
-    //     await savingsAPI.createGoal(savingsData);
-    //   } else {
-    //     // Add API call for recurring payments
-    //   }
-    //
-    //   // Handle success
-    //   console.log(`${savingsType === "goal" ? "Savings goal" : "Recurring payment"} added successfully`);
-    //
-    //   // Close the dialog after submission
-    //   setOpen(false);
-    //
-    //   // Reset the form
-    //   resetForm();
-    // } catch (error) {
-    //   console.error(`Failed to add ${savingsType === "goal" ? "savings goal" : "recurring payment"}:`, error);
-    //   alert(`Failed to add ${savingsType === "goal" ? "savings goal" : "recurring payment"}. Please try again.`);
-    // } finally {
-    //   setIsLoading(false);
-    // }
-
-    // For now, just close the dialog and reset the form
-    setOpen(false)
-    resetForm()
   }
 
   function resetForm() {
