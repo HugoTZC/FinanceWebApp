@@ -24,36 +24,29 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
-import { creditAPI, transactionsAPI, categoriesAPI } from "@/lib/api"
-import type { CreditCardType } from "@/types/credit"
+import { Slider } from "@/components/ui/slider"
+import { creditAPI, transactionsAPI, categoriesAPI, savingsAPI } from "@/lib/api"
+import type { CreditCardType, LoanType } from "@/types/credit"
 import { toast } from "@/components/ui/use-toast"
 
-// Sample credit cards data - in a real app, this would come from your API
-const creditCards = [
-  { id: "cc1", name: "Chase Sapphire", lastFour: "4567" },
-  { id: "cc2", name: "American Express", lastFour: "7890" },
-  { id: "cc3", name: "Discover", lastFour: "1234" },
-]
+// Define interfaces for savings goals and recurring payments
+interface SavingsGoal {
+  id: string
+  name: string
+  target: number
+  current: number
+  dueDate: string
+  type: "goal"
+}
 
-// Add this sample data for savings accounts after the categories array
-const savingsAccounts = [
-  { id: "s1", name: "Emergency Fund", target: 10000, current: 5000, dueDate: "2023-12-31", type: "goal" },
-  { id: "s2", name: "Vacation", target: 3000, current: 1500, dueDate: "2023-08-15", type: "goal" },
-  { id: "s3", name: "New Car", target: 20000, current: 8000, dueDate: "2024-06-30", type: "goal" },
-  { id: "s4", name: "Home Down Payment", target: 50000, current: 15000, dueDate: "2025-01-15", type: "goal" },
-]
-
-// Add recurring payments data
-const recurringPayments = [
-  { id: "r1", name: "Mortgage", amount: 1500, current: 500, dueDate: "2023-07-01", type: "recurring" },
-  { id: "r2", name: "Car Payment", amount: 350, current: 150, dueDate: "2023-07-15", type: "recurring" },
-  { id: "r3", name: "Student Loan", amount: 250, current: 100, dueDate: "2023-07-21", type: "recurring" },
-  { id: "r4", name: "Internet", amount: 80, current: 0, dueDate: "2023-07-05", type: "recurring" },
-  { id: "r5", name: "Phone Bill", amount: 65, current: 30, dueDate: "2023-07-10", type: "recurring" },
-]
-
-// Combine savings accounts and recurring payments for the dropdown
-const allSavingsOptions = [...savingsAccounts, ...recurringPayments]
+interface RecurringPayment {
+  id: string
+  name: string
+  amount: number
+  current: number
+  dueDate: string
+  type: "recurring"
+}
 
 interface Category {
   id: string;
@@ -63,6 +56,16 @@ interface Category {
   icon: string;
   color: string;
   source: 'default' | 'user';
+}
+
+// Define interface for combined credit options (cards and loans)
+interface CreditOptionType {
+  id: string;
+  name: string;
+  balance: number;
+  type: "card" | "loan";
+  last_four?: string;
+  bank_number?: string;
 }
 
 export function AddTransactionDialog() {
@@ -79,22 +82,55 @@ export function AddTransactionDialog() {
   const [isLoading, setIsLoading] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(false)
+  const [isCredit, setIsCredit] = useState(false) // Add slider state for debit/credit option
 
   // Add this state for savings account assignment after the other state declarations
   const [assignToSavings, setAssignToSavings] = useState(false)
   const [selectedSavingsAccount, setSelectedSavingsAccount] = useState("")
   const [apiCreditCards, setApiCreditCards] = useState<CreditCardType[]>([])
+  const [apiLoans, setApiLoans] = useState<LoanType[]>([])
+  const [creditOptions, setCreditOptions] = useState<CreditOptionType[]>([])
   const [isLoadingCards, setIsLoadingCards] = useState(false)
+  const [isLoadingLoans, setIsLoadingLoans] = useState(false)
+  
+  // Add state for API savings data
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([])
+  const [recurringPayments, setRecurringPayments] = useState<RecurringPayment[]>([])
+  const [isLoadingSavings, setIsLoadingSavings] = useState(false)
 
-  // Reset payment method when transaction type changes
+  // Handle transaction type changes
   useEffect(() => {
     if (type === "income") {
       setPaymentMethod("cash")
       setSelectedCard("")
+      setIsCredit(false)
+    } else if (type === "expense") {
+      // Reset to cash payment method when switching to expense
+      setPaymentMethod("cash")
+      setSelectedCard("")
+      setIsCredit(false)
+    } else if (type === "credit-payment") {
+      // Automatically configure for credit payment
+      setPaymentMethod("credit-card")
+      setCategory("credit-payment") // Assuming you have a "credit-payment" category ID
+      setIsCredit(false)
+      // Fetch credit options if necessary
+      if (creditOptions.length === 0 && !isLoadingCards) {
+        fetchCreditOptions()
+      }
+    } else if (type === "savings-deposit") {
+      // Automatically configure for savings deposit
+      setPaymentMethod("cash")
+      setCategory("deposit") // Assuming you have a "deposit" category ID
+      setAssignToSavings(true)
+      setIsCredit(false)
+      // Fetch savings data if necessary
+      if ((savingsGoals.length === 0 && recurringPayments.length === 0) && !isLoadingSavings) {
+        fetchSavingsData()
+      }
     }
   }, [type])
 
-  // Add this after the useEffect hook that resets payment method
   // Reset savings assignment when transaction type changes or payment method changes
   useEffect(() => {
     if (type !== "expense" || paymentMethod !== "cash") {
@@ -104,37 +140,145 @@ export function AddTransactionDialog() {
   }, [type, paymentMethod])
 
   // Fetch credit cards from API
+  async function fetchCreditCards() {
+    try {
+      setIsLoadingCards(true)
+      const response = await creditAPI.getCards()
+      if (response?.data?.data?.cards) {
+        setApiCreditCards(response.data.data.cards)
+      }
+    } catch (error) {
+      console.error("Failed to fetch credit cards:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load credit cards. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingCards(false)
+    }
+  }
+
+  // Fetch savings data (goals and recurring payments)
+  async function fetchSavingsData() {
+    try {
+      setIsLoadingSavings(true)
+      
+      // Fetch both savings goals and recurring payments in parallel
+      const [goalsResponse, paymentsResponse] = await Promise.all([
+        savingsAPI.getGoals(),
+        savingsAPI.getRecurringPayments()
+      ]);
+      
+      // Process savings goals
+      if (goalsResponse?.data?.data?.goals) {
+        const transformedGoals = goalsResponse.data.data.goals.map((goal: any) => ({
+          id: goal.id,
+          name: goal.name,
+          target: parseFloat(goal.target_amount),
+          current: parseFloat(goal.current_amount),
+          dueDate: goal.target_date,
+          type: "goal" as const
+        }));
+        setSavingsGoals(transformedGoals);
+      }
+      
+      // Process recurring payments
+      if (paymentsResponse?.data?.data?.payments) {
+        const transformedPayments = paymentsResponse.data.data.payments.map((payment: any) => ({
+          id: payment.id,
+          name: payment.name,
+          amount: parseFloat(payment.amount),
+          current: parseFloat(payment.current_amount),
+          dueDate: payment.due_date,
+          type: "recurring" as const
+        }));
+        setRecurringPayments(transformedPayments);
+      }
+    } catch (error) {
+      console.error("Failed to fetch savings data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load savings goals and recurring payments.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingSavings(false);
+    }
+  }
+
+  // Fetch all credit options (cards and loans) from API
+  async function fetchCreditOptions() {
+    try {
+      setIsLoadingCards(true);
+      
+      // Fetch both credit cards and loans in parallel
+      const [cardsResponse, loansResponse] = await Promise.all([
+        creditAPI.getCards(),
+        creditAPI.getLoans()
+      ]);
+      
+      // Process credit cards
+      let creditCardOptions: CreditOptionType[] = [];
+      if (cardsResponse?.data?.data?.cards) {
+        creditCardOptions = cardsResponse.data.data.cards.map((card: CreditCardType) => ({
+          id: card.id,
+          name: card.name,
+          balance: card.balance,
+          type: "card",
+          last_four: card.last_four
+        }));
+        setApiCreditCards(cardsResponse.data.data.cards);
+      }
+      
+      // Process loans
+      let loanOptions: CreditOptionType[] = [];
+      if (loansResponse?.data?.data?.loans) {
+        loanOptions = loansResponse.data.data.loans.map((loan: LoanType) => ({
+          id: loan.id,
+          name: loan.name,
+          balance: loan.balance,
+          type: "loan",
+          bank_number: loan.bank_number
+        }));
+        setApiLoans(loansResponse.data.data.loans);
+      }
+      
+      // Combine both types of credit options
+      setCreditOptions([...creditCardOptions, ...loanOptions]);
+      
+    } catch (error) {
+      console.error("Failed to fetch credit options:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load credit options. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingCards(false);
+    }
+  }
+
+  // Call API fetch methods when component opens
   useEffect(() => {
-    async function fetchCreditCards() {
-      try {
-        setIsLoadingCards(true)
-        const response = await creditAPI.getCards()
-        if (response?.data?.data?.cards) {
-          setApiCreditCards(response.data.data.cards)
-        }
-      } catch (error) {
-        console.error("Failed to fetch credit cards:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load credit cards. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingCards(false)
+    if (open) {
+      if (type === "expense" && paymentMethod === "credit-card") {
+        fetchCreditCards()
+      }
+      if (type === "expense" && paymentMethod === "cash" && assignToSavings) {
+        fetchSavingsData()
       }
     }
-
-    if (type === "expense" && paymentMethod === "credit-card") {
-      fetchCreditCards()
-    }
-  }, [type, paymentMethod])
+  }, [open, type, paymentMethod, assignToSavings])
 
   // Fetch categories when type changes
   useEffect(() => {
     async function fetchCategories() {
       try {
         setIsLoadingCategories(true)
-        const response = await categoriesAPI.getByType(type)
+        // Map special transaction types to "expense" for API compatibility
+        const categoryType = type === "card-payment" || type === "savings-deposit" ? "expense" : type
+        const response = await categoriesAPI.getByType(categoryType)
         if (response?.data?.data?.categories) {
           setCategories(response.data.data.categories)
         }
@@ -152,11 +296,85 @@ export function AddTransactionDialog() {
 
     fetchCategories()
   }, [type])
+  
+  // Fetch savings goals and recurring payments from API
+  useEffect(() => {
+    async function fetchSavingsData() {
+      if (type !== "expense" || paymentMethod !== "cash") return;
+      
+      try {
+        setIsLoadingSavings(true)
+        
+        // Fetch both savings goals and recurring payments in parallel
+        const [goalsResponse, paymentsResponse] = await Promise.all([
+          savingsAPI.getGoals(),
+          savingsAPI.getRecurringPayments()
+        ]);
+        
+        // Process savings goals
+        if (goalsResponse?.data?.data?.goals) {
+          const transformedGoals = goalsResponse.data.data.goals.map((goal: any) => ({
+            id: goal.id,
+            name: goal.name,
+            target: parseFloat(goal.target_amount),
+            current: parseFloat(goal.current_amount),
+            dueDate: goal.target_date,
+            type: "goal" as const
+          }));
+          setSavingsGoals(transformedGoals);
+        }
+        
+        // Process recurring payments
+        if (paymentsResponse?.data?.data?.payments) {
+          const transformedPayments = paymentsResponse.data.data.payments.map((payment: any) => ({
+            id: payment.id,
+            name: payment.name,
+            amount: parseFloat(payment.amount),
+            current: parseFloat(payment.current_amount),
+            dueDate: payment.due_date,
+            type: "recurring" as const
+          }));
+          setRecurringPayments(transformedPayments);
+        }
+      } catch (error) {
+        console.error("Failed to fetch savings data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load savings goals and recurring payments.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingSavings(false);
+      }
+    }
+
+    fetchSavingsData();
+  }, [type, paymentMethod, open]);
 
   // Reset category when type changes
   useEffect(() => {
     setCategory("")
   }, [type])
+  
+  // Set title based on selected card/savings
+  useEffect(() => {
+    if (type === "card-payment" && selectedCard) {
+      const selectedCardObj = apiCreditCards.find(card => card.id === selectedCard)
+      if (selectedCardObj) {
+        setTitle(`${selectedCardObj.name} payment`)
+      }
+    } else if (type === "savings-deposit" && selectedSavingsAccount) {
+      // Find if it's a goal or recurring payment
+      const savingsGoal = savingsGoals.find(goal => goal.id === selectedSavingsAccount)
+      const recurringPayment = recurringPayments.find(payment => payment.id === selectedSavingsAccount)
+      
+      if (savingsGoal) {
+        setTitle(`${savingsGoal.name} deposit`)
+      } else if (recurringPayment) {
+        setTitle(`${recurringPayment.name} deposit`)
+      }
+    }
+  }, [type, selectedCard, selectedSavingsAccount, apiCreditCards, savingsGoals, recurringPayments])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -200,7 +418,7 @@ export function AddTransactionDialog() {
         payment_method: normalizedPaymentMethod,
         credit_card_id: paymentMethod === "credit-card" ? selectedCard : null,
         assign_to_savings: type === "expense" && paymentMethod === "cash" ? assignToSavings : false,
-        savings_goal_id: assignToSavings ? selectedSavingsAccount : null,
+        savings_goal_id: assignToSavings && selectedSavingsAccount ? selectedSavingsAccount : null,
       }
       
       console.log("[TRANSACTION] Transaction data:", transaction)
@@ -307,6 +525,8 @@ export function AddTransactionDialog() {
                 <SelectContent>
                   <SelectItem value="income">Income</SelectItem>
                   <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="credit-payment">Credit Payment</SelectItem>
+                  <SelectItem value="savings-deposit">Saving's Deposit</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -329,6 +549,39 @@ export function AddTransactionDialog() {
             </div>
           </div>
 
+          {/* Credit/Debit toggle for regular expense transactions only */}
+          {type === "expense" && (
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Payment Method</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  type="button"
+                  variant={!isCredit ? "default" : "outline"}
+                  className={`relative transition-all duration-200 ${!isCredit ? "ring-2 ring-primary" : ""}`}
+                  onClick={() => {
+                    setIsCredit(false);
+                    setPaymentMethod("cash");
+                  }}
+                >
+                  <Wallet className="mr-2 h-4 w-4" />
+                  Cash/Debit
+                </Button>
+                <Button 
+                  type="button"
+                  variant={isCredit ? "default" : "outline"}
+                  className={`relative transition-all duration-200 ${isCredit ? "ring-2 ring-primary" : ""}`}
+                  onClick={() => {
+                    setIsCredit(true);
+                    setPaymentMethod("credit-card");
+                  }}
+                >
+                  <CreditCardIcon className="mr-2 h-4 w-4" />
+                  Credit Card
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
@@ -337,70 +590,78 @@ export function AddTransactionDialog() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
+              disabled={type === "card-payment" || type === "savings-deposit"}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger id="category">
-                <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select category"} />
-              </SelectTrigger>
-              <SelectContent>
-                {isLoadingCategories ? (
-                  <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                ) : categories.length > 0 ? (
-                  <>
-                    <SelectItem value="system-header" disabled className="font-semibold">
-                      System Categories
-                    </SelectItem>
-                    {categories.filter(cat => cat.source === 'default').map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                    
-                    <SelectItem value="user-header" disabled className="font-semibold">
-                      Custom Categories
-                    </SelectItem>
-                    {categories.filter(cat => cat.source === 'user').map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </>
-                ) : (
-                  <SelectItem value="no-categories" disabled>No categories found</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {type === "expense" && (
+          {/* Only show category selector for regular income/expense transactions */}
+          {(type === "income" || type === "expense") && (
             <div className="space-y-2">
-              <Label>Payment Method</Label>
-              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-4">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cash" id="cash" />
-                  <Label htmlFor="cash" className="flex items-center gap-1 cursor-pointer">
-                    <Wallet className="h-4 w-4" />
-                    Cash/Debit
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="credit-card" id="credit-card" />
-                  <Label htmlFor="credit-card" className="flex items-center gap-1 cursor-pointer">
-                    <CreditCardIcon className="h-4 w-4" />
-                    Credit Card
-                  </Label>
-                </div>
-              </RadioGroup>
+              <Label htmlFor="category">Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger id="category">
+                  <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select category"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoadingCategories ? (
+                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                  ) : categories.length > 0 ? (
+                    <>
+                      <SelectItem value="system-header" disabled className="font-semibold">
+                        System Categories
+                      </SelectItem>
+                      {categories.filter(cat => cat.source === 'default').map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                      
+                      <SelectItem value="user-header" disabled className="font-semibold">
+                        Custom Categories
+                      </SelectItem>
+                      {categories.filter(cat => cat.source === 'user').map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  ) : (
+                    <SelectItem value="no-categories" disabled>No categories found</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
+          {/* Credit card selection */}
           {type === "expense" && paymentMethod === "credit-card" && (
             <div className="space-y-2">
               <Label htmlFor="creditCard">Select Credit Card</Label>
+              <Select value={selectedCard} onValueChange={setSelectedCard}>
+                <SelectTrigger id="creditCard">
+                  <SelectValue placeholder={isLoadingCards ? "Loading cards..." : "Select credit card"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoadingCards ? (
+                    <SelectItem value="loading" disabled>Loading credit cards...</SelectItem>
+                  ) : apiCreditCards.length > 0 ? (
+                    apiCreditCards.map((card) => (
+                      <SelectItem key={`card-${card.id}`} value={card.id}>
+                        {card.name} (*{card.last_four}) - ${typeof card.balance === 'number' ? card.balance.toFixed(2) : Number(card.balance).toFixed(2)}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-cards" disabled>No credit cards found</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Special UI for Card Payment */}
+          {type === "card-payment" && (
+            <div className="space-y-2">
+              <Label htmlFor="creditCard">Select Card</Label>
               <Select value={selectedCard} onValueChange={setSelectedCard}>
                 <SelectTrigger id="creditCard">
                   <SelectValue placeholder={isLoadingCards ? "Loading cards..." : "Select credit card"} />
@@ -422,48 +683,107 @@ export function AddTransactionDialog() {
             </div>
           )}
 
-          {/* Add this code after the payment method section in the form */}
-          {type === "expense" && paymentMethod === "cash" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="assignToSavings" className="flex items-center gap-2">
-                  Assign to Savings Goal or Recurring Payment
-                  <span className="text-xs text-muted-foreground">
-                    (Count towards a savings goal or recurring payment)
-                  </span>
-                </Label>
-                <Switch id="assignToSavings" checked={assignToSavings} onCheckedChange={setAssignToSavings} />
-              </div>
+          {/* Special UI for Credit Payment */}
+          {type === "credit-payment" && (
+            <div className="space-y-2">
+              <Label htmlFor="creditOption">Select Credit</Label>
+              <Select value={selectedCard} onValueChange={setSelectedCard}>
+                <SelectTrigger id="creditOption">
+                  <SelectValue placeholder={isLoadingCards ? "Loading credits..." : "Select credit card or loan"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoadingCards ? (
+                    <SelectItem value="loading" disabled>Loading credits...</SelectItem>
+                  ) : (
+                    <>
+                      {/* Credit Cards Section */}
+                      {apiCreditCards.length > 0 && (
+                        <>
+                          <SelectItem value="cards-header" disabled className="font-semibold">
+                            Credit Cards
+                          </SelectItem>
+                          {apiCreditCards.map((card) => (
+                            <SelectItem key={`card-${card.id}`} value={card.id}>
+                              {card.name} (*{card.last_four}) - ${typeof card.balance === 'number' ? card.balance.toFixed(2) : Number(card.balance).toFixed(2)}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      
+                      {/* Loans Section */}
+                      {apiLoans.length > 0 && (
+                        <>
+                          <SelectItem value="loans-header" disabled className="font-semibold">
+                            Loans
+                          </SelectItem>
+                          {apiLoans.map((loan) => (
+                            <SelectItem key={`loan-${loan.id}`} value={loan.id}>
+                              {loan.name} (#{loan.bank_number}) - ${typeof loan.balance === 'number' ? loan.balance.toFixed(2) : Number(loan.balance).toFixed(2)}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      
+                      {apiCreditCards.length === 0 && apiLoans.length === 0 && (
+                        <SelectItem value="no-credits" disabled>
+                          No credit cards or loans found
+                        </SelectItem>
+                      )}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-              {assignToSavings && (
-                <div className="space-y-2">
-                  <Label htmlFor="savingsAccount">Select Savings Goal or Recurring Payment</Label>
-                  <Select value={selectedSavingsAccount} onValueChange={setSelectedSavingsAccount}>
-                    <SelectTrigger id="savingsAccount">
-                      <SelectValue placeholder="Select savings goal or recurring payment" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* Replace empty string values with unique identifiers */}
-                      <SelectItem value="savings-header" disabled className="font-semibold">
-                        Savings Goals
-                      </SelectItem>
-                      {savingsAccounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name} (${account.current.toFixed(2)}/${account.target.toFixed(2)})
+          {/* Special UI for Saving's Deposit */}
+          {type === "savings-deposit" && (
+            <div className="space-y-2">
+              <Label htmlFor="savingsAccount">Select Saving/Recurring Payment</Label>
+              <Select value={selectedSavingsAccount} onValueChange={setSelectedSavingsAccount}>
+                <SelectTrigger id="savingsAccount">
+                  <SelectValue placeholder={isLoadingSavings ? "Loading..." : "Select savings goal or recurring payment"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoadingSavings ? (
+                    <SelectItem value="loading" disabled>Loading savings data...</SelectItem>
+                  ) : (
+                    <>
+                      {savingsGoals.length > 0 && (
+                        <>
+                          <SelectItem value="savings-header" disabled className="font-semibold">
+                            Savings Goals
+                          </SelectItem>
+                          {savingsGoals.map((goal) => (
+                            <SelectItem key={goal.id} value={goal.id}>
+                              {goal.name} (${goal.current.toFixed(2)}/${goal.target.toFixed(2)})
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      
+                      {recurringPayments.length > 0 && (
+                        <>
+                          <SelectItem value="recurring-header" disabled className="font-semibold">
+                            Recurring Payments
+                          </SelectItem>
+                          {recurringPayments.map((payment) => (
+                            <SelectItem key={payment.id} value={payment.id}>
+                              {payment.name} (${payment.current.toFixed(2)}/${payment.amount.toFixed(2)})
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      
+                      {savingsGoals.length === 0 && recurringPayments.length === 0 && (
+                        <SelectItem value="no-savings" disabled>
+                          No savings goals or recurring payments found
                         </SelectItem>
-                      ))}
-                      <SelectItem value="recurring-header" disabled className="font-semibold">
-                        Recurring Payments
-                      </SelectItem>
-                      {recurringPayments.map((payment) => (
-                        <SelectItem key={payment.id} value={payment.id}>
-                          {payment.name} (${payment.current.toFixed(2)}/${payment.amount.toFixed(2)})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+                      )}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
