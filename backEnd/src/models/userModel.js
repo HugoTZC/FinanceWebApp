@@ -21,7 +21,7 @@ const userModel = {
     const password_hash = await bcrypt.hash(password, salt);
     
     const query = `
-      INSERT INTO finance.users (email, password_hash, first_name, last_name, second_last_name, nickname)
+      INSERT INTO public.users (email, password_hash, first_name, last_name, second_last_name, nickname)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, email, first_name, last_name, second_last_name, nickname, created_at
     `;
@@ -33,13 +33,13 @@ const userModel = {
       console.log('User created:', result.rows[0]);
       // Create user settings with defaults
       await db.query(
-        'INSERT INTO finance.user_settings (user_id) VALUES ($1)',
+        'INSERT INTO public.user_settings (user_id) VALUES ($1)',
         [result.rows[0].id]
       );
       
       // Create notification preferences with defaults
       await db.query(
-        'INSERT INTO finance.notification_preferences (user_id) VALUES ($1)',
+        'INSERT INTO public.notification_preferences (user_id) VALUES ($1)',
         [result.rows[0].id]
       );
       
@@ -60,7 +60,7 @@ const userModel = {
   async findById(id) {
     const query = `
       SELECT id, email, first_name, last_name, second_last_name, nickname, avatar_url, created_at, updated_at
-      FROM finance.users
+      FROM public.users
       WHERE id = $1
     `;
     
@@ -76,7 +76,7 @@ const userModel = {
   async findByEmail(email) {
     const query = `
       SELECT id, email, password_hash, first_name, last_name, second_last_name, nickname, avatar_url, created_at, updated_at
-      FROM finance.users
+      FROM public.users
       WHERE email = $1
     `;
     
@@ -112,7 +112,7 @@ const userModel = {
     values.push(id);
     
     const query = `
-      UPDATE finance.users
+      UPDATE public.users
       SET ${updateFields.join(', ')}
       WHERE id = $${fieldIndex}
       RETURNING id, email, first_name, last_name, second_last_name, nickname, avatar_url, created_at, updated_at
@@ -133,7 +133,7 @@ const userModel = {
     const password_hash = await bcrypt.hash(newPassword, salt);
     
     const query = `
-      UPDATE finance.users
+      UPDATE public.users
       SET password_hash = $1
       WHERE id = $2
     `;
@@ -150,7 +150,7 @@ const userModel = {
   async getSettings(userId) {
     const query = `
       SELECT user_id, language, currency, theme, created_at, updated_at
-      FROM finance.user_settings
+      FROM public.user_settings
       WHERE user_id = $1
     `;
     
@@ -186,7 +186,7 @@ const userModel = {
     values.push(userId);
     
     const query = `
-      UPDATE finance.user_settings
+      UPDATE public.user_settings
       SET ${updateFields.join(', ')}
       WHERE user_id = $${fieldIndex}
       RETURNING user_id, language, currency, theme, created_at, updated_at
@@ -204,7 +204,7 @@ const userModel = {
   async getNotificationPreferences(userId) {
     const query = `
       SELECT *
-      FROM finance.notification_preferences
+      FROM public.notification_preferences
       WHERE user_id = $1
     `;
     
@@ -244,7 +244,7 @@ const userModel = {
     values.push(userId);
     
     const query = `
-      UPDATE finance.notification_preferences
+      UPDATE public.notification_preferences
       SET ${updateFields.join(', ')}
       WHERE user_id = $${fieldIndex}
       RETURNING *
@@ -262,7 +262,7 @@ const userModel = {
   async delete(id) {
     // Note: This will cascade delete all user data due to foreign key constraints
     const query = `
-      DELETE FROM finance.users
+      DELETE FROM public.users
       WHERE id = $1
     `;
     

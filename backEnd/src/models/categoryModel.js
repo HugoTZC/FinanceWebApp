@@ -8,7 +8,7 @@ const categoryModel = {
   async getDefaultCategories() {
     const query = `
       SELECT *
-      FROM finance.categories
+      FROM public.categories
       WHERE is_default = TRUE
       ORDER BY name
     `;
@@ -25,7 +25,7 @@ const categoryModel = {
   async findById(id) {
     const query = `
       SELECT *
-      FROM finance.categories
+      FROM public.categories
       WHERE id = $1
     `;
     
@@ -42,7 +42,7 @@ const categoryModel = {
     const { user_id, name, type, category_group, icon, color } = categoryData;
     
     const query = `
-      INSERT INTO finance.user_categories (user_id, name, type, category_group, icon, color)
+      INSERT INTO public.user_categories (user_id, name, type, category_group, icon, color)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
@@ -61,7 +61,7 @@ const categoryModel = {
   async getUserCategories(userId) {
     const query = `
       SELECT *
-      FROM finance.user_categories
+      FROM public.user_categories
       WHERE user_id = $1
       ORDER BY name
     `;
@@ -79,7 +79,7 @@ const categoryModel = {
   async findUserCategoryById(id, userId) {
     const query = `
       SELECT *
-      FROM finance.user_categories
+      FROM public.user_categories
       WHERE id = $1 AND user_id = $2
     `;
     
@@ -116,7 +116,7 @@ const categoryModel = {
     values.push(id, userId);
     
     const query = `
-      UPDATE finance.user_categories
+      UPDATE public.user_categories
       SET ${updateFields.join(', ')}
       WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
       RETURNING *
@@ -134,7 +134,7 @@ const categoryModel = {
    */
   async deleteUserCategory(id, userId) {
     const query = `
-      DELETE FROM finance.user_categories
+      DELETE FROM public.user_categories
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `;
@@ -151,13 +151,13 @@ const categoryModel = {
   async getAllCategories(userId) {
     const query = `
       SELECT id, name, type, category_group, icon, color, 'default' as source
-      FROM finance.categories
+      FROM public.categories
       WHERE is_default = TRUE
       
       UNION ALL
       
       SELECT id, name, type, category_group, icon, color, 'user' as source
-      FROM finance.user_categories
+      FROM public.user_categories
       WHERE user_id = $1
       
       ORDER BY name
@@ -174,22 +174,60 @@ const categoryModel = {
    * @returns {Array} Categories of specified type
    */
   async getCategoriesByType(userId, type) {
-    const query = `
+    console.log('getCategoriesByType called with:', { userId, type });
+
+    // Get default categories
+    const defaultQuery = `
       SELECT id, name, type, category_group, icon, color, 'default' as source
-      FROM finance.categories
+      FROM public.categories
       WHERE is_default = TRUE AND type = $1
-      
-      UNION ALL
-      
-      SELECT id, name, type, category_group, icon, color, 'user' as source
-      FROM finance.user_categories
-      WHERE user_id = $2 AND type = $1
-      
       ORDER BY name
     `;
-    
-    const result = await db.query(query, [type, userId]);
-    return result.rows;
+
+    // Get user categories
+    const userQuery = `
+      SELECT id, name, type, category_group, icon, color, 'user' as source
+      FROM public.user_categories
+      WHERE user_id = $1 AND type = $2
+      ORDER BY name
+    `;
+
+    console.log('Executing default query:', defaultQuery, 'with params:', [type]);
+    console.log('Executing user query:', userQuery, 'with params:', [userId, type]);
+
+    const [defaultResult, userResult] = await Promise.all([
+      db.query(defaultQuery, [type]),
+      db.query(userQuery, [userId, type])
+    ]);
+
+    console.log('Default categories result:', defaultResult.rows);
+    console.log('User categories result:', userResult.rows);
+
+    // Process results to ensure correct structure
+    const processedDefault = defaultResult.rows.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      type: cat.type,
+      category_group: cat.category_group,
+      icon: cat.icon,
+      color: cat.color,
+      source: 'default'
+    }));
+
+    const processedUser = userResult.rows.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      type: cat.type,
+      category_group: cat.category_group,
+      icon: cat.icon,
+      color: cat.color,
+      source: 'user'
+    }));
+
+    // Combine and sort results
+    const allCategories = [...processedDefault, ...processedUser];
+    console.log('Combined categories:', allCategories);
+    return allCategories.sort((a, b) => a.name.localeCompare(b.name));
   }
 };
 

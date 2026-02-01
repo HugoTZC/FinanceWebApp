@@ -13,7 +13,7 @@ const creditModel = {
     } = cardData;
     
     const query = `
-      INSERT INTO finance.credit_cards (
+      INSERT INTO public.credit_cards (
         user_id, name, last_four, card_type, balance, 
         credit_limit, interest_rate, due_date, min_payment
       )
@@ -38,7 +38,7 @@ const creditModel = {
   async getCreditCards(userId) {
     const query = `
       SELECT *
-      FROM finance.credit_cards
+      FROM public.credit_cards
       WHERE user_id = $1
       ORDER BY name
     `;
@@ -56,7 +56,7 @@ const creditModel = {
   async getCreditCardById(id, userId) {
     const query = `
       SELECT *
-      FROM finance.credit_cards
+      FROM public.credit_cards
       WHERE id = $1 AND user_id = $2
     `;
     
@@ -97,7 +97,7 @@ const creditModel = {
     values.push(id, userId);
     
     const query = `
-      UPDATE finance.credit_cards
+      UPDATE public.credit_cards
       SET ${updateFields.join(', ')}
       WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
       RETURNING *
@@ -115,7 +115,7 @@ const creditModel = {
    */
   async deleteCreditCard(id, userId) {
     const query = `
-      DELETE FROM finance.credit_cards
+      DELETE FROM public.credit_cards
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `;
@@ -137,7 +137,7 @@ const creditModel = {
     } = loanData;
     
     const query = `
-      INSERT INTO finance.loans (
+      INSERT INTO public.loans (
         user_id, name, loan_type, bank_number, original_amount,
         balance, interest_rate, term, monthly_payment, due_date,
         start_date, end_date
@@ -173,7 +173,7 @@ const creditModel = {
   async getLoans(userId) {
     const query = `
       SELECT *
-      FROM finance.loans
+      FROM public.loans
       WHERE user_id = $1
       ORDER BY name
     `;
@@ -191,7 +191,7 @@ const creditModel = {
   async getLoanById(id, userId) {
     const query = `
       SELECT *
-      FROM finance.loans
+      FROM public.loans
       WHERE id = $1 AND user_id = $2
     `;
     
@@ -233,7 +233,7 @@ const creditModel = {
     values.push(id, userId);
     
     const query = `
-      UPDATE finance.loans
+      UPDATE public.loans
       SET ${updateFields.join(', ')}
       WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
       RETURNING *
@@ -251,7 +251,7 @@ const creditModel = {
    */
   async deleteLoan(id, userId) {
     const query = `
-      DELETE FROM finance.loans
+      DELETE FROM public.loans
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `;
@@ -273,9 +273,9 @@ const creditModel = {
       SELECT 
         COALESCE(c.name, uc.name) as category_name,
         SUM(t.amount) as amount
-      FROM finance.transactions t
-      LEFT JOIN finance.categories c ON t.category_id = c.id
-      LEFT JOIN finance.user_categories uc ON t.user_category_id = uc.id
+      FROM public.transactions t
+      LEFT JOIN public.categories c ON t.category_id = c.id
+      LEFT JOIN public.user_categories uc ON t.user_category_id = uc.id
       WHERE t.user_id = $1
         AND t.credit_card_id = $2
         AND t.type = 'expense'
@@ -302,9 +302,9 @@ const creditModel = {
       SELECT 
         COALESCE(c.name, uc.name) as category_name,
         SUM(t.amount) as amount
-      FROM finance.transactions t
-      LEFT JOIN finance.categories c ON t.category_id = c.id
-      LEFT JOIN finance.user_categories uc ON t.user_category_id = uc.id
+      FROM public.transactions t
+      LEFT JOIN public.categories c ON t.category_id = c.id
+      LEFT JOIN public.user_categories uc ON t.user_category_id = uc.id
       WHERE t.user_id = $1
         AND t.credit_card_id = $2
         AND t.type = 'expense'
@@ -334,7 +334,7 @@ const creditModel = {
         TO_CHAR(TO_DATE(m.month::text, 'MM'), 'Mon') as month,
         COALESCE(SUM(t.amount), 0) as amount
       FROM months m
-      LEFT JOIN finance.transactions t ON 
+      LEFT JOIN public.transactions t ON 
         EXTRACT(MONTH FROM t.transaction_date) = m.month
         AND EXTRACT(YEAR FROM t.transaction_date) = $3
         AND t.user_id = $1

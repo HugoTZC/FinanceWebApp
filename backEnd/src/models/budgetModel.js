@@ -14,7 +14,7 @@ const budgetModel = {
     const endDate = new Date(year, month, 0); // Last day of the month
     
     const query = `
-      INSERT INTO finance.budget_periods (user_id, year, month, start_date, end_date)
+      INSERT INTO public.budget_periods (user_id, year, month, start_date, end_date)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
@@ -29,7 +29,7 @@ const budgetModel = {
       if (error.code === '23505') { // Unique violation
         const existingQuery = `
           SELECT *
-          FROM finance.budget_periods
+          FROM public.budget_periods
           WHERE user_id = $1 AND year = $2 AND month = $3
         `;
         
@@ -50,7 +50,7 @@ const budgetModel = {
   async getPeriod(userId, year, month) {
     const query = `
       SELECT *
-      FROM finance.budget_periods
+      FROM public.budget_periods
       WHERE user_id = $1 AND year = $2 AND month = $3
     `;
     
@@ -66,7 +66,7 @@ const budgetModel = {
   async getPeriodById(id) {
     const query = `
       SELECT *
-      FROM finance.budget_periods
+      FROM public.budget_periods
       WHERE id = $1
     `;
     
@@ -85,7 +85,7 @@ const budgetModel = {
   async setBudgetCategory(budgetPeriodId, categoryId, userCategoryId, amount) {
     // Get the user_id from the budget period for validation
     const periodQuery = `
-      SELECT user_id FROM finance.budget_periods WHERE id = $1
+      SELECT user_id FROM public.budget_periods WHERE id = $1
     `;
     const periodResult = await db.query(periodQuery, [budgetPeriodId]);
     if (!periodResult.rows.length) {
@@ -107,7 +107,7 @@ const budgetModel = {
 
     // First check if the budget category already exists
     const checkQuery = `
-      SELECT id FROM finance.budget_categories 
+      SELECT id FROM public.budget_categories 
       WHERE budget_period_id = $1 
       AND (
         (category_id = $2 AND $2 IS NOT NULL)
@@ -123,7 +123,7 @@ const budgetModel = {
     if (checkResult.rows.length > 0) {
       // If the category exists, update it
       const updateQuery = `
-        UPDATE finance.budget_categories 
+        UPDATE public.budget_categories 
         SET amount = $4 
         WHERE id = $5
         RETURNING *
@@ -133,7 +133,7 @@ const budgetModel = {
     } else {
       // If the category doesn't exist, insert it
       const insertQuery = `
-        INSERT INTO finance.budget_categories (budget_period_id, category_id, user_category_id, amount)
+        INSERT INTO public.budget_categories (budget_period_id, category_id, user_category_id, amount)
         VALUES ($1, $2, $3, $4)
         RETURNING *
       `;
@@ -162,9 +162,9 @@ const budgetModel = {
         uc.category_group as user_category_group,
         uc.icon as user_category_icon,
         uc.color as user_category_color
-      FROM finance.budget_categories bc
-      LEFT JOIN finance.categories c ON bc.category_id = c.id
-      LEFT JOIN finance.user_categories uc ON bc.user_category_id = uc.id
+      FROM public.budget_categories bc
+      LEFT JOIN public.categories c ON bc.category_id = c.id
+      LEFT JOIN public.user_categories uc ON bc.user_category_id = uc.id
       WHERE bc.budget_period_id = $1
     `;
     
@@ -179,7 +179,7 @@ const budgetModel = {
    */
   async deleteBudgetCategory(id) {
     const query = `
-      DELETE FROM finance.budget_categories
+      DELETE FROM public.budget_categories
       WHERE id = $1
       RETURNING id
     `;
@@ -223,7 +223,7 @@ const budgetModel = {
         SELECT 
           COALESCE(t.category_id, t.user_category_id) as category_id,
           SUM(t.amount) as spent
-        FROM finance.transactions t
+        FROM public.transactions t
         WHERE t.user_id = $1
           AND t.transaction_date BETWEEN $2 AND $3
           AND t.type = 'expense'
@@ -275,11 +275,11 @@ const budgetModel = {
           COALESCE(c.name, uc.name) as category_name,
           bc.amount as budget_amount,
           COALESCE(SUM(t.amount), 0) as spent_amount
-        FROM finance.budget_periods bp
-        JOIN finance.budget_categories bc ON bp.id = bc.budget_period_id
-        LEFT JOIN finance.categories c ON bc.category_id = c.id
-        LEFT JOIN finance.user_categories uc ON bc.user_category_id = uc.id
-        LEFT JOIN finance.transactions t ON (
+        FROM public.budget_periods bp
+        JOIN public.budget_categories bc ON bp.id = bc.budget_period_id
+        LEFT JOIN public.categories c ON bc.category_id = c.id
+        LEFT JOIN public.user_categories uc ON bc.user_category_id = uc.id
+        LEFT JOIN public.transactions t ON (
           (t.category_id = bc.category_id OR t.user_category_id = bc.user_category_id)
           AND EXTRACT(YEAR FROM t.transaction_date) = bp.year 
           AND EXTRACT(MONTH FROM t.transaction_date) = bp.month
@@ -314,7 +314,7 @@ const budgetModel = {
    */
   async markAlertAsRead(alertId, userId) {
     const query = `
-      UPDATE finance.budget_alerts
+      UPDATE public.budget_alerts
       SET is_read = TRUE
       WHERE id = $1 AND user_id = $2
       RETURNING id

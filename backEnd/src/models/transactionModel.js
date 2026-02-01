@@ -45,14 +45,9 @@ const transactionModel = {
       
       try {
         await client.query('BEGIN');
-        
-        // Desactivar temporalmente los triggers en la tabla de transacciones
-        // Esto resolverá el problema con el trigger check_budget_thresholds
-        console.log('Disabling triggers temporarily to create transaction');
-        await client.query('SET session_replication_role = replica;');
-        
+
         const insertQuery = `
-          INSERT INTO finance.transactions (
+          INSERT INTO public.transactions (
             user_id, title, amount, transaction_date, type, 
             category_id, user_category_id, payment_method, 
             bank_account_id, credit_card_id, comment, 
@@ -82,16 +77,15 @@ const transactionModel = {
         ];
         
         // Realizar la inserción
-        console.log('Executing transaction insert with disabled triggers');
         const result = await client.query(insertQuery, values);
-        
-        // Volver a habilitar los triggers
-        console.log('Re-enabling triggers');
-        await client.query('SET session_replication_role = DEFAULT;');
-        
+
+        // Update related balances within the same transaction
+        await updateRelatedBalances(result.rows[0], client);
+
         await client.query('COMMIT');
-        
-        console.log(`Transaction created successfully with ID ${result.rows[0].id}`);
+
+        console.log(`Transaction created successfully with ID ${result.rows[0].id} and balances updated`);
+
         return result.rows[0];
       } catch (txError) {
         console.error('Transaction error:', txError);
@@ -120,11 +114,11 @@ const transactionModel = {
           uc.name as user_category_name,
           ba.name as bank_account_name,
           cc.name as credit_card_name
-        FROM finance.transactions t
-        LEFT JOIN finance.categories c ON t.category_id = c.id
-        LEFT JOIN finance.user_categories uc ON t.user_category_id = uc.id
-        LEFT JOIN finance.bank_accounts ba ON t.bank_account_id = ba.id
-        LEFT JOIN finance.credit_cards cc ON t.credit_card_id = cc.id
+        FROM public.transactions t
+        LEFT JOIN public.categories c ON t.category_id = c.id
+        LEFT JOIN public.user_categories uc ON t.user_category_id = uc.id
+        LEFT JOIN public.bank_accounts ba ON t.bank_account_id = ba.id
+        LEFT JOIN public.credit_cards cc ON t.credit_card_id = cc.id
         WHERE t.id = $1 AND t.user_id = $2
       `;
       
@@ -150,121 +144,166 @@ const transactionModel = {
       const { page, limit, offset } = getPaginationParams(query);
       console.log(`DEBUG: Pagination - page: ${page}, limit: ${limit}, offset: ${offset}`);
       
-      // Build WHERE clauses based on filters
-      const whereConditions = ['t.user_id = $1'];
+      // Simplified approach: fetch all transactions for user and filter in JavaScript
+      // This avoids complex SQL queries that don't work with REST API
       const queryParams = [userId];
-      let paramIndex = 2;
       
-      // Apply year filter specifically if provided
-      if (filters.year) {
-        console.log(`DEBUG: Applying year filter for year ${filters.year}`);
-        whereConditions.push(`EXTRACT(YEAR FROM t.transaction_date) = $${paramIndex}`);
-        queryParams.push(parseInt(filters.year, 10));
-        paramIndex++;
-      }
-      
-      if (filters.month) {
-        console.log(`DEBUG: Applying month filter for month ${filters.month}`);
-        whereConditions.push(`EXTRACT(MONTH FROM t.transaction_date) = $${paramIndex}`);
-        queryParams.push(parseInt(filters.month, 10));
-        paramIndex++;
-      }
-      
-      if (filters.type) {
-        whereConditions.push(`t.type = $${paramIndex}`);
-        queryParams.push(filters.type);
-        paramIndex++;
-      }
-      
-      if (filters.category_id) {
-        whereConditions.push(`t.category_id = $${paramIndex}`);
-        queryParams.push(filters.category_id);
-        paramIndex++;
-      }
-      
-      if (filters.user_category_id) {
-        whereConditions.push(`t.user_category_id = $${paramIndex}`);
-        queryParams.push(filters.user_category_id);
-        paramIndex++;
-      }
-      
-      if (filters.payment_method) {
-        whereConditions.push(`t.payment_method = $${paramIndex}`);
-        queryParams.push(filters.payment_method);
-        paramIndex++;
-      }
-      
-      if (filters.start_date) {
-        whereConditions.push(`t.transaction_date >= $${paramIndex}`);
-        queryParams.push(filters.start_date);
-        paramIndex++;
-      }
-      
-      if (filters.end_date) {
-        whereConditions.push(`t.transaction_date <= $${paramIndex}`);
-        queryParams.push(filters.end_date);
-        paramIndex++;
-      }
-      
-      if (filters.search) {
-        whereConditions.push(`t.title ILIKE $${paramIndex}`);
-        queryParams.push(`%${filters.search}%`);
-        paramIndex++;
-      }
-      
-      console.log(`DEBUG: Query conditions: ${whereConditions.join(' AND ')}`);
-      console.log(`DEBUG: Query params: ${JSON.stringify(queryParams)}`);
-      
-      // Count total records
-      const countQuery = `
-        SELECT COUNT(*) 
-        FROM finance.transactions t
-        WHERE ${whereConditions.join(' AND ')}
+      // Fetch all transactions for the user and filter in JavaScript
+      const allTransactionsQuery = `
+        SELECT t.*
+        FROM public.transactions t
+        WHERE t.user_id = $1
+        ORDER BY t.transaction_date DESC
       `;
-      
-      console.log(`DEBUG: Count query: ${countQuery}`);
-      
+
+      console.log(`DEBUG: Fetching all transactions for user ${userId}`);
+
       try {
-        const countResult = await db.query(countQuery, queryParams);
-        const total = parseInt(countResult.rows[0].count, 10);
-        
-        console.log(`DEBUG: Total transactions found: ${total}`);
-        
-        // If there are no records, return empty result immediately
-        if (total === 0) {
-          console.log(`DEBUG: No transactions found for user ${userId}, returning empty array`);
-          return paginatedResponse([], 0, { page, limit });
-        }
-        
-        // Get paginated data
-        const dataQuery = `
-          SELECT t.*, 
-            c.name as category_name, 
-            uc.name as user_category_name,
-            ba.name as bank_account_name,
-            cc.name as credit_card_name
-          FROM finance.transactions t
-          LEFT JOIN finance.categories c ON t.category_id = c.id
-          LEFT JOIN finance.user_categories uc ON t.user_category_id = uc.id
-          LEFT JOIN finance.bank_accounts ba ON t.bank_account_id = ba.id
-          LEFT JOIN finance.credit_cards cc ON t.credit_card_id = cc.id
-          WHERE ${whereConditions.join(' AND ')}
-          ORDER BY t.transaction_date DESC
-          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `;
-        
-        console.log(`DEBUG: Data query: ${dataQuery.substring(0, 200)}...`);
-        console.log(`DEBUG: Params for data query:`, [...queryParams, limit, offset]);
-        
-        queryParams.push(limit, offset);
-        const dataResult = await db.query(dataQuery, queryParams);
-        
+        const allTransactionsResult = await db.query(allTransactionsQuery, queryParams);
+
+        console.log(`DEBUG: Retrieved ${allTransactionsResult.rows.length} total transactions from database`);
+
+        // Apply all filtering in JavaScript
+        let filteredTransactions = allTransactionsResult.rows.filter(transaction => {
+          // Type filter
+          if (filters.type && transaction.type !== filters.type) {
+            return false;
+          }
+
+          // Category filters
+          if (filters.category_id && transaction.category_id !== filters.category_id) {
+            return false;
+          }
+
+          if (filters.user_category_id && transaction.user_category_id !== filters.user_category_id) {
+            return false;
+          }
+
+          // Payment method filter
+          if (filters.payment_method && transaction.payment_method !== filters.payment_method) {
+            return false;
+          }
+
+          // Date filters
+          if (filters.start_date) {
+            const startDate = new Date(filters.start_date);
+            const txDate = new Date(transaction.transaction_date);
+            if (txDate < startDate) return false;
+          }
+
+          if (filters.end_date) {
+            const endDate = new Date(filters.end_date);
+            const txDate = new Date(transaction.transaction_date);
+            if (txDate > endDate) return false;
+          }
+
+          // Year/Month filters
+          if (filters.year || filters.month) {
+            const date = new Date(transaction.transaction_date);
+            const transactionYear = date.getFullYear();
+            const transactionMonth = date.getMonth() + 1;
+
+            if (filters.year && transactionYear !== parseInt(filters.year)) {
+              return false;
+            }
+            if (filters.month && transactionMonth !== parseInt(filters.month)) {
+              return false;
+            }
+          }
+
+          // Search filter
+          if (filters.search) {
+            const searchTerm = filters.search.toLowerCase();
+            if (!transaction.title.toLowerCase().includes(searchTerm)) {
+              return false;
+            }
+          }
+
+          return true;
+        });
+
+        console.log(`DEBUG: After filtering: ${filteredTransactions.length} transactions`);
+
+        const total = filteredTransactions.length;
+
+        // Apply pagination
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+        console.log(`DEBUG: After pagination: ${paginatedTransactions.length} transactions (page ${page}, limit ${limit})`);
+
+        // If no transactions after pagination, but we have total, that's fine
+        const dataResult = { rows: paginatedTransactions };
+
         console.log(`DEBUG: Retrieved ${dataResult.rows.length} transactions`);
+
+        // Fetch related data separately
+        if (dataResult.rows.length > 0) {
+          // Get unique IDs for related data
+          const categoryIds = [...new Set(dataResult.rows.map(t => t.category_id).filter(id => id))];
+          const userCategoryIds = [...new Set(dataResult.rows.map(t => t.user_category_id).filter(id => id))];
+          const bankAccountIds = [...new Set(dataResult.rows.map(t => t.bank_account_id).filter(id => id))];
+          const creditCardIds = [...new Set(dataResult.rows.map(t => t.credit_card_id).filter(id => id))];
+
+          // Fetch related data using individual queries to avoid ANY() operator
+          const [categories, userCategories, bankAccounts, creditCards] = await Promise.all([
+            categoryIds.length > 0 ? Promise.all(categoryIds.map(id => db.query('SELECT id, name FROM public.categories WHERE id = $1', [id]))).then(results => ({ rows: results.flatMap(r => r.rows) })) : Promise.resolve({ rows: [] }),
+            userCategoryIds.length > 0 ? Promise.all(userCategoryIds.map(id => db.query('SELECT id, name FROM public.user_categories WHERE id = $1', [id]))).then(results => ({ rows: results.flatMap(r => r.rows) })) : Promise.resolve({ rows: [] }),
+            bankAccountIds.length > 0 ? Promise.all(bankAccountIds.map(id => db.query('SELECT id, name FROM public.bank_accounts WHERE id = $1', [id]))).then(results => ({ rows: results.flatMap(r => r.rows) })) : Promise.resolve({ rows: [] }),
+            creditCardIds.length > 0 ? Promise.all(creditCardIds.map(id => db.query('SELECT id, name FROM public.credit_cards WHERE id = $1', [id]))).then(results => ({ rows: results.flatMap(r => r.rows) })) : Promise.resolve({ rows: [] })
+          ]);
+
+          // Create lookup maps
+          const categoryMap = new Map(categories.rows.map(c => [c.id, c.name]));
+          const userCategoryMap = new Map(userCategories.rows.map(c => [c.id, c.name]));
+          const bankAccountMap = new Map(bankAccounts.rows.map(a => [a.id, a.name]));
+          const creditCardMap = new Map(creditCards.rows.map(c => [c.id, c.name]));
+
+          // Add related data to transactions and map field names to match frontend expectations
+          dataResult.rows = dataResult.rows.map(transaction => ({
+            ...transaction,
+            // Map database fields to frontend expected fields
+            date: transaction.transaction_date,
+            description: transaction.title,
+            category: transaction.category_id ? categoryMap.get(transaction.category_id) : (transaction.user_category_id ? userCategoryMap.get(transaction.user_category_id) : "Other"),
+            // Keep the original fields for backward compatibility
+            category_name: transaction.category_id ? categoryMap.get(transaction.category_id) : null,
+            user_category_name: transaction.user_category_id ? userCategoryMap.get(transaction.user_category_id) : null,
+            bank_account_name: transaction.bank_account_id ? bankAccountMap.get(transaction.bank_account_id) : null,
+            credit_card_name: transaction.credit_card_id ? creditCardMap.get(transaction.credit_card_id) : null
+          }));
+        }
+
+        // Apply year/month filtering in JavaScript
+        if (filters.year || filters.month) {
+          console.log(`DEBUG: Applying year/month filter in JavaScript: year=${filters.year}, month=${filters.month}`);
+          console.log(`DEBUG: Sample transaction dates before filtering:`, dataResult.rows.slice(0, 3).map(t => t.transaction_date));
+          dataResult.rows = dataResult.rows.filter(transaction => {
+            const date = new Date(transaction.transaction_date);
+            const transactionYear = date.getFullYear();
+            const transactionMonth = date.getMonth() + 1; // JavaScript months are 0-based
+
+            console.log(`DEBUG: Transaction date ${transaction.transaction_date} -> year=${transactionYear}, month=${transactionMonth}`);
+
+            if (filters.year && transactionYear !== parseInt(filters.year)) {
+              return false;
+            }
+            if (filters.month && transactionMonth !== parseInt(filters.month)) {
+              return false;
+            }
+            return true;
+          });
+          console.log(`DEBUG: After filtering: ${dataResult.rows.length} transactions`);
+        }
+
         if (dataResult.rows.length > 0) {
           console.log(`DEBUG: First transaction:`, JSON.stringify(dataResult.rows[0]).substring(0, 200));
         }
-        
-        const response = paginatedResponse(dataResult.rows, total, { page, limit });
+
+        // Update total count for pagination after filtering
+        const actualTotal = dataResult.rows.length;
+        const response = paginatedResponse(dataResult.rows, actualTotal, { page, limit });
         console.log(`DEBUG: Response structure:`, Object.keys(response));
         
         return response;
@@ -318,7 +357,7 @@ const transactionModel = {
       values.push(id, userId);
       
       const query = `
-        UPDATE finance.transactions
+        UPDATE public.transactions
         SET ${updateFields.join(', ')}
         WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
         RETURNING *
@@ -341,7 +380,7 @@ const transactionModel = {
   async delete(id, userId) {
     try {
       const query = `
-        DELETE FROM finance.transactions
+        DELETE FROM public.transactions
         WHERE id = $1 AND user_id = $2
         RETURNING id
       `;
@@ -362,19 +401,38 @@ const transactionModel = {
    * @returns {Object} Monthly summary
    */
   async getMonthlySummary(userId, year, month) {
-    const query = `
-      SELECT 
-        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as total_income,
-        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as total_expenses,
-        SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) as net_flow
-      FROM finance.transactions
+    // Fetch transactions for the month
+    const transactionsQuery = `
+      SELECT type, amount, transaction_date
+      FROM public.transactions
       WHERE user_id = $1
-        AND EXTRACT(YEAR FROM transaction_date) = $2
-        AND EXTRACT(MONTH FROM transaction_date) = $3
     `;
-    
-    const result = await db.query(query, [userId, year, month]);
-    return result.rows[0];
+
+    const transactions = await db.query(transactionsQuery, [userId]);
+
+    // Filter transactions by year and month in JavaScript
+    const filteredTransactions = transactions.rows.filter(t => {
+      const date = new Date(t.transaction_date);
+      return date.getFullYear() === year && date.getMonth() + 1 === month;
+    });
+
+    // Calculate summary
+    let totalIncome = 0;
+    let totalExpenses = 0;
+
+    filteredTransactions.forEach(t => {
+      if (t.type === 'income') {
+        totalIncome += parseFloat(t.amount);
+      } else if (t.type === 'expense') {
+        totalExpenses += parseFloat(t.amount);
+      }
+    });
+
+    return {
+      total_income: totalIncome,
+      total_expenses: totalExpenses,
+      net_flow: totalIncome - totalExpenses
+    };
   },
   
   /**
@@ -385,24 +443,48 @@ const transactionModel = {
    * @returns {Array} Category breakdown
    */
   async getCategoryBreakdown(userId, year, month) {
-    const query = `
-      SELECT 
-        COALESCE(c.name, uc.name) as category_name,
-        COALESCE(c.type, uc.type) as category_type,
-        SUM(t.amount) as total_amount,
-        COUNT(t.id) as transaction_count
-      FROM finance.transactions t
-      LEFT JOIN finance.categories c ON t.category_id = c.id
-      LEFT JOIN finance.user_categories uc ON t.user_category_id = uc.id
-      WHERE t.user_id = $1
-        AND EXTRACT(YEAR FROM t.transaction_date) = $2
-        AND EXTRACT(MONTH FROM t.transaction_date) = $3
-      GROUP BY COALESCE(c.name, uc.name), COALESCE(c.type, uc.type)
-      ORDER BY total_amount DESC
-    `;
-    
-    const result = await db.query(query, [userId, year, month]);
-    return result.rows;
+    // Fetch transactions and categories separately
+    const [transactionsResult, categoriesResult, userCategoriesResult] = await Promise.all([
+      db.query('SELECT category_id, user_category_id, amount, transaction_date FROM public.transactions WHERE user_id = $1', [userId]),
+      db.query('SELECT id, name, type FROM public.categories'),
+      db.query('SELECT id, name, type FROM public.user_categories WHERE user_id = $1', [userId])
+    ]);
+
+    // Create lookup maps
+    const categoryMap = new Map(categoriesResult.rows.map(c => [c.id, { name: c.name, type: c.type }]));
+    const userCategoryMap = new Map(userCategoriesResult.rows.map(c => [c.id, { name: c.name, type: c.type }]));
+
+    // Filter transactions by year and month, then group by category
+    const categoryBreakdown = new Map();
+
+    transactionsResult.rows.forEach(t => {
+      const date = new Date(t.transaction_date);
+      if (date.getFullYear() === year && date.getMonth() + 1 === month) {
+        const categoryId = t.category_id || t.user_category_id;
+        const categoryData = t.category_id ?
+          categoryMap.get(t.category_id) :
+          userCategoryMap.get(t.user_category_id);
+
+        if (categoryData) {
+          const key = categoryData.name;
+          if (!categoryBreakdown.has(key)) {
+            categoryBreakdown.set(key, {
+              category_name: categoryData.name,
+              category_type: categoryData.type,
+              total_amount: 0,
+              transaction_count: 0
+            });
+          }
+          const breakdown = categoryBreakdown.get(key);
+          breakdown.total_amount += parseFloat(t.amount);
+          breakdown.transaction_count += 1;
+        }
+      }
+    });
+
+    // Convert to array and sort
+    return Array.from(categoryBreakdown.values())
+      .sort((a, b) => b.total_amount - a.total_amount);
   },
   
   /**
@@ -427,7 +509,7 @@ const transactionModel = {
       
       const query = `
         SELECT DISTINCT EXTRACT(YEAR FROM transaction_date)::integer as year
-        FROM finance.transactions
+        FROM public.transactions
         WHERE user_id = $1
         ORDER BY year DESC
       `;
@@ -472,7 +554,7 @@ const transactionModel = {
     // Count total records
     const countQuery = `
       SELECT COUNT(*) 
-      FROM finance.transactions
+      FROM public.transactions
       WHERE user_id = $1 AND credit_card_id = $2
     `;
     
@@ -484,9 +566,9 @@ const transactionModel = {
       SELECT t.*, 
         c.name as category_name, 
         uc.name as user_category_name
-      FROM finance.transactions t
-      LEFT JOIN finance.categories c ON t.category_id = c.id
-      LEFT JOIN finance.user_categories uc ON t.user_category_id = uc.id
+      FROM public.transactions t
+      LEFT JOIN public.categories c ON t.category_id = c.id
+      LEFT JOIN public.user_categories uc ON t.user_category_id = uc.id
       WHERE t.user_id = $1 AND t.credit_card_id = $2
       ORDER BY t.transaction_date DESC
       LIMIT $3 OFFSET $4
@@ -497,5 +579,84 @@ const transactionModel = {
     return paginatedResponse(dataResult.rows, total, { page, limit });
   }
 };
+
+/**
+ * Update related balances after transaction creation
+ * @param {Object} transaction - The created transaction
+ * @param {Object} client - Database client for the transaction
+ */
+async function updateRelatedBalances(transaction, client) {
+  try {
+    console.log('Updating related balances for transaction:', transaction.id);
+
+    // Update credit card balance if transaction uses a credit card
+    if (transaction.credit_card_id) {
+      if (transaction.type === 'expense') {
+        // Increase credit card balance (debt) for expenses
+        await client.query(
+          'UPDATE public.credit_cards SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
+          [transaction.amount, transaction.credit_card_id]
+        );
+        console.log(`Updated credit card ${transaction.credit_card_id} balance: +${transaction.amount}`);
+      } else if (transaction.type === 'income' && transaction.payment_method === 'credit_card_payment') {
+        // Decrease credit card balance (payment) for credit card payments
+        await client.query(
+          'UPDATE public.credit_cards SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
+          [transaction.amount, transaction.credit_card_id]
+        );
+        console.log(`Updated credit card ${transaction.credit_card_id} balance: -${transaction.amount}`);
+      }
+    }
+
+    // Update bank account balance if transaction uses a bank account
+    if (transaction.bank_account_id) {
+      if (transaction.type === 'income') {
+        // Increase bank account balance for income
+        await client.query(
+          'UPDATE public.bank_accounts SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
+          [transaction.amount, transaction.bank_account_id]
+        );
+        console.log(`Updated bank account ${transaction.bank_account_id} balance: +${transaction.amount}`);
+      } else if (transaction.type === 'expense') {
+        // Decrease bank account balance for expenses
+        await client.query(
+          'UPDATE public.bank_accounts SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
+          [transaction.amount, transaction.bank_account_id]
+        );
+        console.log(`Updated bank account ${transaction.bank_account_id} balance: -${transaction.amount}`);
+      }
+    }
+
+    // Update savings goal progress if transaction is for a savings goal
+    if (transaction.savings_goal_id) {
+      if (transaction.type === 'expense' && transaction.payment_method === 'savings_deposit') {
+        // Increase savings goal current amount
+        await client.query(
+          'UPDATE public.savings_goals SET current_amount = current_amount + $1, updated_at = NOW() WHERE id = $2',
+          [transaction.amount, transaction.savings_goal_id]
+        );
+        console.log(`Updated savings goal ${transaction.savings_goal_id} progress: +${transaction.amount}`);
+      }
+    }
+
+    // Update recurring payment if transaction is a recurring payment
+    if (transaction.recurring_payment_id) {
+      if (transaction.type === 'expense') {
+        // Update recurring payment current amount
+        await client.query(
+          'UPDATE public.recurring_payments SET current_amount = current_amount + $1, updated_at = NOW() WHERE id = $2',
+          [transaction.amount, transaction.recurring_payment_id]
+        );
+        console.log(`Updated recurring payment ${transaction.recurring_payment_id} amount: +${transaction.amount}`);
+      }
+    }
+
+    console.log('Related balances updated successfully');
+  } catch (error) {
+    console.error('Error updating related balances:', error);
+    // Don't throw error here as the transaction was already created successfully
+    // Just log the error for monitoring
+  }
+}
 
 module.exports = transactionModel;

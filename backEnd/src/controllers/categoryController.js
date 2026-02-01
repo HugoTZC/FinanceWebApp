@@ -51,15 +51,18 @@ exports.getCategoriesByType = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { type } = req.params;
-    
+
+    console.log('Getting categories by type:', { userId, type });
+
     // Validate type
     if (!['income', 'expense'].includes(type)) {
       return next(new AppError('Invalid category type', 400));
     }
-    
+
     // Get categories by type
     const categories = await categoryModel.getCategoriesByType(userId, type);
-    
+    console.log('Categories returned:', categories);
+
     res.status(200).json({
       status: 'success',
       data: {
@@ -67,6 +70,7 @@ exports.getCategoriesByType = async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error('Error in getCategoriesByType:', error);
     next(error);
   }
 };

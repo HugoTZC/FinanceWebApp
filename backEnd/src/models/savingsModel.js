@@ -13,7 +13,7 @@ const savingsModel = {
     } = goalData;
     
     const query = `
-      INSERT INTO finance.savings_goals (
+      INSERT INTO public.savings_goals (
         user_id, name, target_amount, current_amount, 
         start_date, target_date
       )
@@ -38,7 +38,7 @@ const savingsModel = {
   async getSavingsGoals(userId) {
     const query = `
       SELECT *
-      FROM finance.savings_goals
+      FROM public.savings_goals
       WHERE user_id = $1
       ORDER BY is_completed, target_date
     `;
@@ -56,7 +56,7 @@ const savingsModel = {
   async getSavingsGoalById(id, userId) {
     const query = `
       SELECT *
-      FROM finance.savings_goals
+      FROM public.savings_goals
       WHERE id = $1 AND user_id = $2
     `;
     
@@ -97,7 +97,7 @@ const savingsModel = {
     values.push(id, userId);
     
     const query = `
-      UPDATE finance.savings_goals
+      UPDATE public.savings_goals
       SET ${updateFields.join(', ')}
       WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
       RETURNING *
@@ -115,7 +115,7 @@ const savingsModel = {
    */
   async deleteSavingsGoal(id, userId) {
     const query = `
-      DELETE FROM finance.savings_goals
+      DELETE FROM public.savings_goals
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `;
@@ -136,7 +136,7 @@ const savingsModel = {
     } = paymentData;
     
     const query = `
-      INSERT INTO finance.recurring_payments (
+      INSERT INTO public.recurring_payments (
         user_id, name, amount, current_amount, 
         due_date, frequency, category
       )
@@ -161,7 +161,7 @@ const savingsModel = {
   async getRecurringPayments(userId) {
     const query = `
       SELECT *
-      FROM finance.recurring_payments
+      FROM public.recurring_payments
       WHERE user_id = $1
       ORDER BY due_date
     `;
@@ -179,7 +179,7 @@ const savingsModel = {
   async getRecurringPaymentById(id, userId) {
     const query = `
       SELECT *
-      FROM finance.recurring_payments
+      FROM public.recurring_payments
       WHERE id = $1 AND user_id = $2
     `;
     
@@ -220,7 +220,7 @@ const savingsModel = {
     values.push(id, userId);
     
     const query = `
-      UPDATE finance.recurring_payments
+      UPDATE public.recurring_payments
       SET ${updateFields.join(', ')}
       WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
       RETURNING *
@@ -238,7 +238,7 @@ const savingsModel = {
    */
   async deleteRecurringPayment(id, userId) {
     const query = `
-      DELETE FROM finance.recurring_payments
+      DELETE FROM public.recurring_payments
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `;
@@ -259,8 +259,8 @@ const savingsModel = {
         sg.*,
         COALESCE(SUM(t.amount), 0) as total_contributions,
         COUNT(t.id) as contribution_count
-      FROM finance.savings_goals sg
-      LEFT JOIN finance.transactions t ON t.savings_goal_id = sg.id
+      FROM public.savings_goals sg
+      LEFT JOIN public.transactions t ON t.savings_goal_id = sg.id
       WHERE sg.id = $1 AND sg.user_id = $2
       GROUP BY sg.id
     `;
@@ -281,8 +281,8 @@ const savingsModel = {
         rp.*,
         COALESCE(SUM(t.amount), 0) as total_contributions,
         COUNT(t.id) as contribution_count
-      FROM finance.recurring_payments rp
-      LEFT JOIN finance.transactions t ON t.recurring_payment_id = rp.id
+      FROM public.recurring_payments rp
+      LEFT JOIN public.transactions t ON t.recurring_payment_id = rp.id
       WHERE rp.id = $1 AND rp.user_id = $2
       GROUP BY rp.id
     `;

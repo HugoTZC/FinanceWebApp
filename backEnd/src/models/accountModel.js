@@ -10,7 +10,7 @@ const accountModel = {
     const { user_id, name, account_number, account_type, balance, is_default } = accountData;
     
     const query = `
-      INSERT INTO finance.bank_accounts (user_id, name, account_number, account_type, balance, is_default)
+      INSERT INTO public.bank_accounts (user_id, name, account_number, account_type, balance, is_default)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
@@ -29,7 +29,7 @@ const accountModel = {
     // If this is the default account, update other accounts
     if (is_default) {
       await db.query(
-        `UPDATE finance.bank_accounts 
+        `UPDATE public.bank_accounts 
          SET is_default = FALSE 
          WHERE user_id = $1 AND id != $2`,
         [user_id, result.rows[0].id]
@@ -47,7 +47,7 @@ const accountModel = {
   async getBankAccounts(userId) {
     const query = `
       SELECT *
-      FROM finance.bank_accounts
+      FROM public.bank_accounts
       WHERE user_id = $1
       ORDER BY is_default DESC, name
     `;
@@ -65,7 +65,7 @@ const accountModel = {
   async getBankAccountById(id, userId) {
     const query = `
       SELECT *
-      FROM finance.bank_accounts
+      FROM public.bank_accounts
       WHERE id = $1 AND user_id = $2
     `;
     
@@ -102,7 +102,7 @@ const accountModel = {
     values.push(id, userId);
     
     const query = `
-      UPDATE finance.bank_accounts
+      UPDATE public.bank_accounts
       SET ${updateFields.join(', ')}
       WHERE id = $${fieldIndex} AND user_id = $${fieldIndex + 1}
       RETURNING *
@@ -113,7 +113,7 @@ const accountModel = {
     // If this is the default account, update other accounts
     if (accountData.is_default) {
       await db.query(
-        `UPDATE finance.bank_accounts 
+        `UPDATE public.bank_accounts 
          SET is_default = FALSE 
          WHERE user_id = $1 AND id != $2`,
         [userId, id]
@@ -131,7 +131,7 @@ const accountModel = {
    */
   async deleteBankAccount(id, userId) {
     const query = `
-      DELETE FROM finance.bank_accounts
+      DELETE FROM public.bank_accounts
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `;
@@ -153,7 +153,7 @@ const accountModel = {
         SELECT
           DATE_TRUNC('month', t.transaction_date) as month,
           SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE -t.amount END) as net_change
-        FROM finance.transactions t
+        FROM public.transactions t
         WHERE t.user_id = $1 
           AND t.bank_account_id = $2
           AND t.transaction_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '${months} months'

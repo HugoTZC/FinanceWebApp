@@ -14,7 +14,7 @@ const notificationModel = {
     } = notificationData;
     
     const query = `
-      INSERT INTO finance.notifications (
+      INSERT INTO public.notifications (
         user_id, title, description, type, 
         related_id, related_type
       )
@@ -61,7 +61,7 @@ const notificationModel = {
     // Count total records
     const countQuery = `
       SELECT COUNT(*) 
-      FROM finance.notifications
+      FROM public.notifications
       WHERE ${whereConditions.join(' AND ')}
     `;
     
@@ -71,7 +71,7 @@ const notificationModel = {
     // Get paginated data
     const dataQuery = `
       SELECT *
-      FROM finance.notifications
+      FROM public.notifications
       WHERE ${whereConditions.join(' AND ')}
       ORDER BY notification_date DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -92,7 +92,7 @@ const notificationModel = {
   async getNotificationById(id, userId) {
     const query = `
       SELECT *
-      FROM finance.notifications
+      FROM public.notifications
       WHERE id = $1 AND user_id = $2
     `;
     
@@ -108,7 +108,7 @@ const notificationModel = {
    */
   async markAsRead(id, userId) {
     const query = `
-      UPDATE finance.notifications
+      UPDATE public.notifications
       SET is_read = TRUE
       WHERE id = $1 AND user_id = $2
       RETURNING *
@@ -125,7 +125,7 @@ const notificationModel = {
    */
   async markAllAsRead(userId) {
     const query = `
-      UPDATE finance.notifications
+      UPDATE public.notifications
       SET is_read = TRUE
       WHERE user_id = $1 AND is_read = FALSE
       RETURNING id
@@ -143,7 +143,7 @@ const notificationModel = {
    */
   async delete(id, userId) {
     const query = `
-      DELETE FROM finance.notifications
+      DELETE FROM public.notifications
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `;
@@ -159,7 +159,7 @@ const notificationModel = {
    */
   async deleteAllRead(userId) {
     const query = `
-      DELETE FROM finance.notifications
+      DELETE FROM public.notifications
       WHERE user_id = $1 AND is_read = TRUE
       RETURNING id
     `;
@@ -176,7 +176,7 @@ const notificationModel = {
   async getUnreadCount(userId) {
     const query = `
       SELECT COUNT(*) as count
-      FROM finance.notifications
+      FROM public.notifications
       WHERE user_id = $1 AND is_read = FALSE
     `;
     
