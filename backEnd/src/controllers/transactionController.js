@@ -160,6 +160,13 @@ exports.getTransactions = async (req, res, next) => {
     // Enhanced user authentication check
     const userId = req.user?.id;
     
+    console.log('🔍 [getTransactions] DEBUG: req.user =', JSON.stringify(req.user, null, 2));
+    console.log('🔍 [getTransactions] DEBUG: userId from token =', userId);
+    console.log('🔍 [getTransactions] DEBUG: Authorization header =', req.headers.authorization ? 'Present' : 'Missing');
+    
+    // Log cookies for debugging
+    console.log('🔍 [getTransactions] DEBUG: cookies =', JSON.stringify(req.cookies));
+    
     if (!userId) {
       console.warn('⚠️ [getTransactions] Authentication missing - no user ID in request');
       // Return empty results instead of error when not authenticated

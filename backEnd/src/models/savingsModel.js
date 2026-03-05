@@ -254,19 +254,32 @@ const savingsModel = {
    * @returns {Object} Savings goal progress
    */
   async getSavingsGoalProgress(goalId, userId) {
-    const query = `
-      SELECT 
-        sg.*,
-        COALESCE(SUM(t.amount), 0) as total_contributions,
-        COUNT(t.id) as contribution_count
-      FROM public.savings_goals sg
-      LEFT JOIN public.transactions t ON t.savings_goal_id = sg.id
-      WHERE sg.id = $1 AND sg.user_id = $2
-      GROUP BY sg.id
-    `;
-    
-    const result = await db.query(query, [goalId, userId]);
-    return result.rows[0] || null;
+    // Fetch the savings goal
+    const goalResult = await db.query(
+      'SELECT * FROM public.savings_goals WHERE id = $1 AND user_id = $2',
+      [goalId, userId]
+    );
+
+    if (goalResult.rows.length === 0) return null;
+
+    const goal = goalResult.rows[0];
+
+    // Fetch related transactions
+    const txResult = await db.query(
+      'SELECT * FROM public.transactions WHERE savings_goal_id = $1',
+      [goalId]
+    );
+
+    const totalContributions = txResult.rows.reduce(
+      (sum, t) => sum + parseFloat(t.amount || 0), 0
+    );
+    const contributionCount = txResult.rows.length;
+
+    return {
+      ...goal,
+      total_contributions: totalContributions,
+      contribution_count: contributionCount
+    };
   },
   
   /**
@@ -276,19 +289,32 @@ const savingsModel = {
    * @returns {Object} Recurring payment progress
    */
   async getRecurringPaymentProgress(paymentId, userId) {
-    const query = `
-      SELECT 
-        rp.*,
-        COALESCE(SUM(t.amount), 0) as total_contributions,
-        COUNT(t.id) as contribution_count
-      FROM public.recurring_payments rp
-      LEFT JOIN public.transactions t ON t.recurring_payment_id = rp.id
-      WHERE rp.id = $1 AND rp.user_id = $2
-      GROUP BY rp.id
-    `;
-    
-    const result = await db.query(query, [paymentId, userId]);
-    return result.rows[0] || null;
+    // Fetch the recurring payment
+    const paymentResult = await db.query(
+      'SELECT * FROM public.recurring_payments WHERE id = $1 AND user_id = $2',
+      [paymentId, userId]
+    );
+
+    if (paymentResult.rows.length === 0) return null;
+
+    const payment = paymentResult.rows[0];
+
+    // Fetch related transactions
+    const txResult = await db.query(
+      'SELECT * FROM public.transactions WHERE recurring_payment_id = $1',
+      [paymentId]
+    );
+
+    const totalContributions = txResult.rows.reduce(
+      (sum, t) => sum + parseFloat(t.amount || 0), 0
+    );
+    const contributionCount = txResult.rows.length;
+
+    return {
+      ...payment,
+      total_contributions: totalContributions,
+      contribution_count: contributionCount
+    };
   }
 };
 

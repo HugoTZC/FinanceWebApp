@@ -105,31 +105,33 @@ const budgetModel = {
       throw new Error('Either category_id or user_category_id must be provided');
     }
 
-    // First check if the budget category already exists
+    // Fetch all budget categories for this period and filter in JS
     const checkQuery = `
-      SELECT id FROM public.budget_categories 
-      WHERE budget_period_id = $1 
-      AND (
-        (category_id = $2 AND $2 IS NOT NULL)
-        OR 
-        (user_category_id = $3 AND $3 IS NOT NULL)
-      )
+      SELECT * FROM public.budget_categories
+      WHERE budget_period_id = $1
     `;
     
-    const checkResult = await db.query(checkQuery, [budgetPeriodId, actualCategoryId, actualUserCategoryId]);
+    const checkResult = await db.query(checkQuery, [budgetPeriodId]);
+    
+    // Filter in JS: find matching category_id or user_category_id
+    const existing = checkResult.rows.find(row => {
+      if (actualCategoryId && row.category_id === actualCategoryId) return true;
+      if (actualUserCategoryId && row.user_category_id === actualUserCategoryId) return true;
+      return false;
+    });
     
     let result;
     
-    if (checkResult.rows.length > 0) {
-      // If the category exists, update it
+    if (existing) {
+      // If the category exists, update it with fresh sequential params
       const updateQuery = `
-        UPDATE public.budget_categories 
-        SET amount = $4 
-        WHERE id = $5
+        UPDATE public.budget_categories
+        SET amount = $1
+        WHERE id = $2
         RETURNING *
       `;
       
-      result = await db.query(updateQuery, [amount, checkResult.rows[0].id]);
+      result = await db.query(updateQuery, [amount, existing.id]);
     } else {
       // If the category doesn't exist, insert it
       const insertQuery = `
@@ -150,26 +152,79 @@ const budgetModel = {
    * @returns {Array} Budget categories
    */
   async getBudgetCategories(budgetPeriodId) {
-    const query = `
-      SELECT bc.*, 
-        c.name as category_name, 
-        c.type as category_type,
-        c.category_group,
-        c.icon,
-        c.color,
-        uc.name as user_category_name,
-        uc.type as user_category_type,
-        uc.category_group as user_category_group,
-        uc.icon as user_category_icon,
-        uc.color as user_category_color
-      FROM public.budget_categories bc
-      LEFT JOIN public.categories c ON bc.category_id = c.id
-      LEFT JOIN public.user_categories uc ON bc.user_category_id = uc.id
-      WHERE bc.budget_period_id = $1
-    `;
-    
-    const result = await db.query(query, [budgetPeriodId]);
-    return result.rows;
+    try {
+      // Step 1: Get budget categories (without joins)
+      const budgetCategoriesQuery = `
+        SELECT * FROM public.budget_categories
+        WHERE budget_period_id = $1
+      `;
+      const budgetCategoriesResult = await db.query(budgetCategoriesQuery, [budgetPeriodId]);
+      
+      if (!budgetCategoriesResult.rows || budgetCategoriesResult.rows.length === 0) {
+        return [];
+      }
+      
+      const budgetCategories = budgetCategoriesResult.rows;
+      
+      // Step 2: Get unique category IDs
+      const categoryIds = [...new Set(budgetCategories.map(bc => bc.category_id).filter(id => id))];
+      const userCategoryIds = [...new Set(budgetCategories.map(bc => bc.user_category_id).filter(id => id))];
+      
+      // Step 3: Fetch categories separately
+      const categoriesMap = new Map();
+      const userCategoriesMap = new Map();
+      
+      // Fetch default categories
+      for (const categoryId of categoryIds) {
+        try {
+          const catQuery = `SELECT id, name, type, category_group, icon, color FROM public.categories WHERE id = $1`;
+          const catResult = await db.query(catQuery, [categoryId]);
+          if (catResult.rows && catResult.rows[0]) {
+            categoriesMap.set(categoryId, catResult.rows[0]);
+          }
+        } catch (e) {
+          console.error(`Error fetching category ${categoryId}:`, e);
+        }
+      }
+      
+      // Fetch user categories
+      for (const userCategoryId of userCategoryIds) {
+        try {
+          const catQuery = `SELECT id, name, type, category_group, icon, color FROM public.user_categories WHERE id = $1`;
+          const catResult = await db.query(catQuery, [userCategoryId]);
+          if (catResult.rows && catResult.rows[0]) {
+            userCategoriesMap.set(userCategoryId, catResult.rows[0]);
+          }
+        } catch (e) {
+          console.error(`Error fetching user category ${userCategoryId}:`, e);
+        }
+      }
+      
+      // Step 4: Combine data
+      const result = budgetCategories.map(bc => {
+        const category = categoriesMap.get(bc.category_id);
+        const userCategory = userCategoriesMap.get(bc.user_category_id);
+        
+        return {
+          ...bc,
+          category_name: category?.name || null,
+          category_type: category?.type || null,
+          category_group: category?.category_group || null,
+          icon: category?.icon || null,
+          color: category?.color || null,
+          user_category_name: userCategory?.name || null,
+          user_category_type: userCategory?.type || null,
+          user_category_group: userCategory?.category_group || null,
+          user_category_icon: userCategory?.icon || null,
+          user_category_color: userCategory?.color || null
+        };
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('Error in getBudgetCategories:', error);
+      return [];
+    }
   },
   
   /**
@@ -205,6 +260,8 @@ const budgetModel = {
         throw new Error('Invalid year or month format');
       }
 
+      console.log(`Getting budget with spending for user ${userId}, year ${numYear}, month ${numMonth}`);
+
       // First get or create the budget period
       let budgetPeriod = await this.getPeriod(userId, numYear, numMonth);
       
@@ -215,34 +272,47 @@ const budgetModel = {
       // Get budget categories
       const budgetCategories = await this.getBudgetCategories(budgetPeriod.id);
       
-      // Get spending for each category
-      const startDate = new Date(Date.UTC(numYear, numMonth - 1, 1));
-      const endDate = new Date(Date.UTC(numYear, numMonth, 0)); // Last day of the month
-      
-      const spendingQuery = `
-        SELECT 
-          COALESCE(t.category_id, t.user_category_id) as category_id,
-          SUM(t.amount) as spent
-        FROM public.transactions t
-        WHERE t.user_id = $1
-          AND t.transaction_date BETWEEN $2 AND $3
-          AND t.type = 'expense'
-        GROUP BY COALESCE(t.category_id, t.user_category_id)
+      // Get all transactions for the user and filter in JavaScript
+      const transactionsQuery = `
+        SELECT category_id, user_category_id, amount, transaction_date, type
+        FROM public.transactions
+        WHERE user_id = $1
       `;
       
-      const spendingResult = await db.query(spendingQuery, [userId, startDate, endDate]);
+      const transactionsResult = await db.query(transactionsQuery, [userId]);
+      
+      // Filter transactions by month/year and type in JavaScript
+      const monthlyExpenses = transactionsResult.rows.filter(t => {
+        if (t.type === 'income') return false;
+        
+        const date = new Date(t.transaction_date);
+        return date.getFullYear() === numYear && (date.getMonth() + 1) === numMonth;
+      });
+      
+      // Calculate spending per category in JavaScript
+      const spendingByCategory = new Map();
+      
+      monthlyExpenses.forEach(t => {
+        const categoryId = t.category_id || t.user_category_id;
+        if (categoryId) {
+          const current = spendingByCategory.get(categoryId) || 0;
+          spendingByCategory.set(categoryId, current + parseFloat(t.amount));
+        }
+      });
       
       // Map spending to budget categories
       const budgetWithSpending = budgetCategories.map(category => {
         const categoryId = category.category_id || category.user_category_id;
-        const spending = spendingResult.rows.find(row => row.category_id === categoryId);
+        const spent = spendingByCategory.get(categoryId) || 0;
         
         return {
           ...category,
-          spent: spending ? parseFloat(spending.spent) : 0,
-          remaining: parseFloat(category.amount || 0) - (spending ? parseFloat(spending.spent) : 0)
+          spent: spent,
+          remaining: parseFloat(category.amount || 0) - spent
         };
       });
+      
+      console.log(`Returning ${budgetWithSpending.length} budget categories with spending`);
       
       return {
         period: budgetPeriod,
@@ -250,7 +320,11 @@ const budgetModel = {
       };
     } catch (error) {
       console.error('Error in getBudgetWithSpending:', error);
-      throw error;
+      // Return empty result instead of throwing
+      return {
+        period: null,
+        categories: []
+      };
     }
   },
   
@@ -260,50 +334,132 @@ const budgetModel = {
    * @returns {Array} Budget alerts
    */
   async getBudgetAlerts(userId) {
-    // Get current month and year for filtering
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
+    try {
+      // Get current month and year for filtering
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
 
-    const query = `
-      WITH budget_spending AS (
-        SELECT 
-          bp.id as budget_period_id,
-          bp.year,
-          bp.month,
-          bc.id as budget_category_id,
-          COALESCE(c.name, uc.name) as category_name,
-          bc.amount as budget_amount,
-          COALESCE(SUM(t.amount), 0) as spent_amount
-        FROM public.budget_periods bp
-        JOIN public.budget_categories bc ON bp.id = bc.budget_period_id
+      console.log(`Getting budget alerts for user ${userId}, year ${currentYear}, month ${currentMonth}`);
+
+      // Step 1: Get budget period for current month
+      const periodQuery = `
+        SELECT * FROM public.budget_periods
+        WHERE user_id = $1 AND year = $2 AND month = $3
+      `;
+      const periodResult = await db.query(periodQuery, [userId, currentYear, currentMonth]);
+      
+      if (!periodResult.rows || periodResult.rows.length === 0) {
+        console.log('No budget period found for current month');
+        return [];
+      }
+      
+      const budgetPeriod = periodResult.rows[0];
+      console.log('Found budget period:', budgetPeriod.id);
+
+      // Step 2: Get budget categories with category names
+      const categoriesQuery = `
+        SELECT bc.*,
+          c.name as category_name,
+          uc.name as user_category_name
+        FROM public.budget_categories bc
         LEFT JOIN public.categories c ON bc.category_id = c.id
         LEFT JOIN public.user_categories uc ON bc.user_category_id = uc.id
-        LEFT JOIN public.transactions t ON (
-          (t.category_id = bc.category_id OR t.user_category_id = bc.user_category_id)
-          AND EXTRACT(YEAR FROM t.transaction_date) = bp.year 
-          AND EXTRACT(MONTH FROM t.transaction_date) = bp.month
-        )
-        WHERE bp.user_id = $1
-          AND bp.year = $2 
-          AND bp.month = $3
-        GROUP BY bp.id, bp.year, bp.month, bc.id, c.name, uc.name, bc.amount
-      )
-      SELECT 
-        bs.*,
-        CASE 
-          WHEN spent_amount >= budget_amount * 0.9 THEN 'HIGH'
-          WHEN spent_amount >= budget_amount * 0.75 THEN 'MEDIUM'
-          ELSE 'LOW'
-        END as alert_level,
-        ROUND((spent_amount / budget_amount * 100)::numeric, 1) as threshold_percentage
-      FROM budget_spending bs
-      WHERE spent_amount >= budget_amount * 0.75
-      ORDER BY spent_amount / budget_amount DESC;
-    `;
+        WHERE bc.budget_period_id = $1
+      `;
+      const categoriesResult = await db.query(categoriesQuery, [budgetPeriod.id]);
+      
+      if (!categoriesResult.rows || categoriesResult.rows.length === 0) {
+        console.log('No budget categories found');
+        return [];
+      }
+      
+      console.log(`Found ${categoriesResult.rows.length} budget categories`);
 
-    const result = await db.query(query, [userId, currentYear, currentMonth]);
-    return result.rows;
+      // Step 3: Get all transactions for the current month
+      const transactionsQuery = `
+        SELECT category_id, user_category_id, amount
+        FROM public.transactions
+        WHERE user_id = $1
+      `;
+      const transactionsResult = await db.query(transactionsQuery, [userId]);
+      
+      // Filter transactions by year and month in JavaScript
+      const filteredTransactions = transactionsResult.rows.filter(t => {
+        // We don't have transaction_date in the select, so we need to fetch it
+        return true; // We'll handle this differently
+      });
+
+      // Actually, let's fetch transactions with dates and filter in JS
+      const transactionsWithDatesQuery = `
+        SELECT category_id, user_category_id, amount, transaction_date
+        FROM public.transactions
+        WHERE user_id = $1
+      `;
+      const transactionsWithDatesResult = await db.query(transactionsWithDatesQuery, [userId]);
+      
+      // Filter by current month/year in JavaScript
+      const monthlyTransactions = transactionsWithDatesResult.rows.filter(t => {
+        const date = new Date(t.transaction_date);
+        return date.getFullYear() === currentYear && (date.getMonth() + 1) === currentMonth && t.type !== 'income';
+      });
+
+      console.log(`Found ${monthlyTransactions.length} transactions for current month`);
+
+      // Step 4: Calculate spending per category
+      const spendingByCategory = new Map();
+      
+      monthlyTransactions.forEach(t => {
+        const categoryId = t.category_id || t.user_category_id;
+        if (categoryId) {
+          const current = spendingByCategory.get(categoryId) || 0;
+          spendingByCategory.set(categoryId, current + parseFloat(t.amount));
+        }
+      });
+
+      // Step 5: Build alerts for categories over 75% of budget
+      const alerts = [];
+      
+      for (const category of categoriesResult.rows) {
+        const categoryId = category.category_id || category.user_category_id;
+        const categoryName = category.category_name || category.user_category_name || 'Unknown';
+        const budgetAmount = parseFloat(category.amount) || 0;
+        const spentAmount = spendingByCategory.get(categoryId) || 0;
+        
+        if (budgetAmount > 0 && spentAmount >= budgetAmount * 0.75) {
+          const percentage = (spentAmount / budgetAmount) * 100;
+          let alertLevel = 'LOW';
+          
+          if (spentAmount >= budgetAmount * 0.9) {
+            alertLevel = 'HIGH';
+          } else if (spentAmount >= budgetAmount * 0.75) {
+            alertLevel = 'MEDIUM';
+          }
+          
+          alerts.push({
+            budget_period_id: budgetPeriod.id,
+            year: currentYear,
+            month: currentMonth,
+            budget_category_id: category.id,
+            category_name: categoryName,
+            budget_amount: budgetAmount,
+            spent_amount: spentAmount,
+            alert_level: alertLevel,
+            threshold_percentage: Math.round(percentage * 10) / 10
+          });
+        }
+      }
+
+      // Sort by percentage descending
+      alerts.sort((a, b) => b.threshold_percentage - a.threshold_percentage);
+      
+      console.log(`Generated ${alerts.length} budget alerts`);
+      return alerts;
+    } catch (error) {
+      console.error('Error in getBudgetAlerts:', error);
+      // Return empty array instead of throwing
+      return [];
+    }
   },
   
   /**

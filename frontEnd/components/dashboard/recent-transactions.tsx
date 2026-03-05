@@ -70,12 +70,11 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
         }
         
         console.log("[TRANSACTIONS] Fetching transactions with filters:", filters)
+        console.log("[TRANSACTIONS] Current yearFilter state:", yearFilter)
+        console.log("[TRANSACTIONS] years array:", years)
         
-        // Usar el año 2025 explícitamente para probar, ya que sabemos que hay datos para ese año
-        if (yearFilter === "all" && years.includes("2025")) {
-          console.log("[TRANSACTIONS] Setting explicit year filter to 2025 for testing")
-          filters.year = "2025"
-        }
+        // REMOVED: Previously hardcoded year=2025 filter that was hiding transactions from other years
+        // The yearFilter="all" should correctly return all transactions without year restriction
         
         // Llamada directa a getAll con los filtros ajustados
         const response = await transactionsAPI.getAll(filters)
@@ -118,7 +117,7 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
                 id: t.id,
                 date: t.transaction_date,
                 description: t.title,
-                category: t.category_name || "Other",
+                category: t.category || t.category_name || "Other",
                 amount: parseFloat(t.amount),
                 type: t.type,
                 // Add icons based on category or type
@@ -239,7 +238,7 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
               id: t.id,
               date: t.transaction_date,
               description: t.title,
-              category: t.category_name || "Other",
+              category: t.category || t.category_name || "Other",
               amount: parseFloat(t.amount),
               type: t.type,
               icon: t.type === "income" 

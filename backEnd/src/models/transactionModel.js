@@ -140,6 +140,14 @@ const transactionModel = {
   async findAll(userId, filters = {}, query = {}) {
     try {
       console.log(`DEBUG: findAll transactions for user ${userId} with filters:`, filters);
+      console.log(`DEBUG: userId type:`, typeof userId, ', userId value:', userId);
+      console.log(`DEBUG: userId is null/undefined:`, userId === null || userId === undefined);
+      
+      // Safety check: if userId is null or undefined, return empty results
+      if (userId === null || userId === undefined) {
+        console.error('ERROR: userId is null or undefined in findAll!');
+        return paginatedResponse([], 0, { page: 1, limit: 10 });
+      }
       
       const { page, limit, offset } = getPaginationParams(query);
       console.log(`DEBUG: Pagination - page: ${page}, limit: ${limit}, offset: ${offset}`);
@@ -157,6 +165,8 @@ const transactionModel = {
       `;
 
       console.log(`DEBUG: Fetching all transactions for user ${userId}`);
+      console.log(`DEBUG: Query:`, allTransactionsQuery);
+      console.log(`DEBUG: Query params:`, queryParams);
 
       try {
         const allTransactionsResult = await db.query(allTransactionsQuery, queryParams);
@@ -275,35 +285,15 @@ const transactionModel = {
           }));
         }
 
-        // Apply year/month filtering in JavaScript
-        if (filters.year || filters.month) {
-          console.log(`DEBUG: Applying year/month filter in JavaScript: year=${filters.year}, month=${filters.month}`);
-          console.log(`DEBUG: Sample transaction dates before filtering:`, dataResult.rows.slice(0, 3).map(t => t.transaction_date));
-          dataResult.rows = dataResult.rows.filter(transaction => {
-            const date = new Date(transaction.transaction_date);
-            const transactionYear = date.getFullYear();
-            const transactionMonth = date.getMonth() + 1; // JavaScript months are 0-based
-
-            console.log(`DEBUG: Transaction date ${transaction.transaction_date} -> year=${transactionYear}, month=${transactionMonth}`);
-
-            if (filters.year && transactionYear !== parseInt(filters.year)) {
-              return false;
-            }
-            if (filters.month && transactionMonth !== parseInt(filters.month)) {
-              return false;
-            }
-            return true;
-          });
-          console.log(`DEBUG: After filtering: ${dataResult.rows.length} transactions`);
-        }
+        // REMOVED: Duplicate year/month filter block that was filtering already-paginated results
+        // Year/month filtering is already applied in the first filter pass (lines 202-213)
 
         if (dataResult.rows.length > 0) {
           console.log(`DEBUG: First transaction:`, JSON.stringify(dataResult.rows[0]).substring(0, 200));
         }
 
-        // Update total count for pagination after filtering
-        const actualTotal = dataResult.rows.length;
-        const response = paginatedResponse(dataResult.rows, actualTotal, { page, limit });
+        // FIXED: Use correct total count (before pagination) instead of filtered paginated subset
+        const response = paginatedResponse(dataResult.rows, total, { page, limit });
         console.log(`DEBUG: Response structure:`, Object.keys(response));
         
         return response;
@@ -495,6 +485,7 @@ const transactionModel = {
   async getTransactionYears(userId) {
     try {
       console.log(`Fetching transaction years for user ID: ${userId}`);
+      console.log(`DEBUG: getTransactionYears - userId type: ${typeof userId}, value: ${userId}`);
       
       // Enhanced safety check for userId
       if (!userId) {
@@ -506,7 +497,7 @@ const transactionModel = {
           { year: currentYear - 2 }
         ];
       }
-      
+
       const query = `
         SELECT DISTINCT EXTRACT(YEAR FROM transaction_date)::integer as year
         FROM public.transactions
@@ -514,7 +505,12 @@ const transactionModel = {
         ORDER BY year DESC
       `;
       
+      console.log(`DEBUG: getTransactionYears query:`, query);
+      console.log(`DEBUG: getTransactionYears params:`, [userId]);
+      
       const result = await safeQuery(() => db.query(query, [userId]));
+      
+      console.log(`DEBUG: getTransactionYears result:`, result);
       
       // If no transactions exist or query failed, return the last 3 years as default
       if (!result || !result.rows || result.rows.length === 0) {

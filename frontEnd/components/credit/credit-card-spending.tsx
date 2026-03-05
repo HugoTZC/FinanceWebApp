@@ -13,8 +13,8 @@ import { TransactionDetailsDialog } from "@/components/transactions/transaction-
 export function CreditCardSpending() {
   // Usamos useState con valor inicial null y asignamos el valor en useEffect
   const [selectedCard, setSelectedCard] = useState<string>("")
-  const [selectedMonth, setSelectedMonth] = useState<string>("May") // Usar un valor estático en lugar de calcularlo
-  const [selectedYear, setSelectedYear] = useState<number>(2025) // Usar un valor estático para el año actual
+  const [selectedMonth, setSelectedMonth] = useState<string>("") // Usar un valor vacío inicialmente
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()) // Usar el año actual dinámicamente
   
   // State for API data
   const [creditCards, setCreditCards] = useState<CreditCardType[]>([])
@@ -84,6 +84,7 @@ export function CreditCardSpending() {
       try {
         setIsLoading(true)
         const response = await creditAPI.getCardMonthlySpending(selectedCard, selectedYear)
+        console.log('Monthly spending response:', response)
         if (response?.data?.spending) {
           setMonthlySpending(response.data.spending)
         } else {
@@ -113,6 +114,7 @@ export function CreditCardSpending() {
           selectedYear,
           selectedMonth
         )
+        console.log('Category spending response:', response)
         if (response?.data?.categories) {
           setCategorySpending(response.data.categories)
         } else {
@@ -236,6 +238,7 @@ export function CreditCardSpending() {
               <SelectValue placeholder="Year" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="2026">2026</SelectItem>
               <SelectItem value="2025">2025</SelectItem>
               <SelectItem value="2024">2024</SelectItem>
               <SelectItem value="2023">2023</SelectItem>

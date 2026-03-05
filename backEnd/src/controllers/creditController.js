@@ -334,21 +334,22 @@ exports.deleteLoan = async (req, res, next) => {
 };
 
 /**
- * Get credit card spending by category
- * @route GET /api/credit/cards/:id/spending/categories/:year/:month
+ * Get recent credit card transactions
+ * @route GET /api/credit/cards/:id/spending
  */
 exports.getCardSpending = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { id, year, month } = req.params;
+    const { id } = req.params;
+    const { year, month } = req.query;
     
-    // Get card spending by category
-    const categories = await creditModel.getCardSpending(id, userId, year, month);
+    // Get recent transactions
+    const transactions = await creditModel.getRecentTransactions(id, userId, year, month);
     
     res.status(200).json({
       status: 'success',
       data: {
-        categories
+        transactions
       }
     });
   } catch (error) {
@@ -388,8 +389,12 @@ exports.getCardMonthlySpending = async (req, res, next) => {
     const userId = req.user.id;
     const { id, year } = req.params;
     
+    console.log(`[DEBUG] getCardMonthlySpending: card=${id}, user=${userId}, year=${year}`);
+    
     // Get card monthly spending
     const spending = await creditModel.getCardMonthlySpending(id, userId, year);
+    
+    console.log(`[DEBUG] spending result:`, spending);
     
     res.status(200).json({
       status: 'success',
@@ -398,6 +403,7 @@ exports.getCardMonthlySpending = async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error('[DEBUG] Error in getCardMonthlySpending:', error);
     next(error);
   }
 };

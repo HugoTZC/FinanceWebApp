@@ -1,81 +1,5 @@
 import axios from "axios";
 
-// Mock data for development fallbacks
-const MOCK_DATA = {
-  transactions: [
-    {
-      id: "mock-tx-1",
-      transaction_date: new Date().toISOString(),
-      title: "Sample Transaction",
-      category_name: "General",
-      amount: 100.00,
-      type: "expense"
-    },
-    {
-      id: "mock-tx-2",
-      transaction_date: new Date().toISOString(),
-      title: "Sample Income",
-      category_name: "Salary",
-      amount: 1500.00,
-      type: "income"
-    },
-    {
-      id: "mock-tx-3",
-      transaction_date: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-      title: "Groceries",
-      category_name: "Food",
-      amount: 75.50,
-      type: "expense"
-    },
-    {
-      id: "mock-tx-4",
-      transaction_date: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-      title: "Phone Bill",
-      category_name: "Utilities",
-      amount: 45.99,
-      type: "expense"
-    },
-    {
-      id: "mock-tx-5",
-      transaction_date: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
-      title: "Freelance Work",
-      category_name: "Side Income",
-      amount: 350.00,
-      type: "income"
-    }
-  ],
-  years: [
-    { year: new Date().getFullYear() },
-    { year: new Date().getFullYear() - 1 },
-    { year: new Date().getFullYear() - 2 }
-  ],
-  categories: [
-    { id: "mock-cat-1", name: "Groceries", type: "expense", source: "system" },
-    { id: "mock-cat-2", name: "Salary", type: "income", source: "system" },
-    { id: "mock-cat-3", name: "Dining", type: "expense", source: "system" },
-    { id: "mock-cat-4", name: "Transportation", type: "expense", source: "system" },
-    { id: "mock-cat-5", name: "Utilities", type: "expense", source: "system" },
-    { id: "mock-cat-6", name: "Entertainment", type: "expense", source: "system" },
-    { id: "mock-cat-7", name: "Side Income", type: "income", source: "system" }
-  ]
-};
-
-// Development mode flag
-const IS_DEV = process.env.NODE_ENV === "development";
-// Use mock data flag - can be toggled for testing
-const USE_MOCK_DATA = IS_DEV && false; // Changed to false to use real API data
-
-// Custom API error with fallback data
-class ApiErrorWithFallback extends Error {
-  fallbackData: any;
-  
-  constructor(message: string, fallbackData: any) {
-    super(message);
-    this.name = "ApiErrorWithFallback";
-    this.fallbackData = fallbackData;
-  }
-}
-
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value?: unknown) => void;
@@ -99,22 +23,8 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
   withCredentials: true,
-  timeout: 10000, // Add timeout to prevent long-hanging requests
+  timeout: 10000,
 });
-
-// Helper function to create a mock response
-const createMockResponse = (data: any, originalRequest: any) => {
-  return {
-    data: {
-      status: 'success',
-      data
-    },
-    status: 200,
-    statusText: 'OK (MOCK)',
-    headers: {},
-    config: originalRequest
-  };
-};
 
 // Request interceptor for API calls
 api.interceptors.request.use(
@@ -124,21 +34,6 @@ api.interceptors.request.use(
     // Ensure Authorization header is set if token exists in localStorage
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
-      console.log("[API] Setting Authorization header from localStorage token");
-    } else {
-      // When using cookies (withCredentials: true), ensure the cookie is properly sent
-      // No need to manually set the Authorization header as the cookie will be sent automatically
-      console.log("[API] No token in localStorage, relying on cookies for authentication");
-    }
-    
-    // For debugging authentication issues
-    console.log("[API] Request headers:", JSON.stringify(config.headers));
-    console.log("[API] withCredentials:", config.withCredentials);
-    
-    // If we're using mock data in development, intercept specific endpoints
-    if (USE_MOCK_DATA && config.url) {
-      // Log intercepted request
-      console.log(`[DEV] Intercepting request to: ${config.url}`);
     }
     
     return config;
@@ -154,34 +49,6 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // If no response or network error, but using mock data in dev mode
-    if (USE_MOCK_DATA && (!error.response || error.code === 'ECONNABORTED') && originalRequest.url) {
-      console.warn(`[DEV] Network error for ${originalRequest.url}, using mock data`);
-      
-      // Provide mock data based on the endpoint
-      if (originalRequest.url.includes('/transactions')) {
-        return createMockResponse({ 
-          transactions: MOCK_DATA.transactions,
-          pagination: {
-            total: MOCK_DATA.transactions.length,
-            page: 1,
-            limit: 10,
-            pages: 1
-          }
-        }, originalRequest);
-      } else if (originalRequest.url.includes('/categories')) {
-        return createMockResponse({ categories: MOCK_DATA.categories }, originalRequest);
-      } else if (originalRequest.url.includes('/years')) {
-        return createMockResponse({ years: MOCK_DATA.years }, originalRequest);
-      }
-    }
-    
-    // Check if the error contains fallback data
-    if (error instanceof ApiErrorWithFallback) {
-      // Return a mock successful response with fallback data
-      return createMockResponse(error.fallbackData, originalRequest);
-    }
-    
     // If error is 401 and we haven't tried refreshing yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -193,28 +60,6 @@ api.interceptors.response.use(
             return api(originalRequest);
           })
           .catch((err) => {
-            // If in development mode, provide mock data instead of rejecting
-            if (USE_MOCK_DATA && (originalRequest.url?.includes('/transactions') || originalRequest.url?.includes('/years'))) {
-              console.warn('[DEV] Using mock data for failed request', originalRequest.url);
-              
-              // Determine which mock data to use based on the endpoint
-              let mockData = {};
-              if (originalRequest.url?.includes('/years')) {
-                mockData = { years: MOCK_DATA.years };
-              } else {
-                mockData = { 
-                  transactions: MOCK_DATA.transactions,
-                  pagination: {
-                    total: MOCK_DATA.transactions.length,
-                    page: 1,
-                    limit: 10,
-                    pages: 1
-                  }
-                };
-              }
-              
-              throw new ApiErrorWithFallback('Using mock data due to auth error', mockData);
-            }
             return Promise.reject(err);
           });
       }
@@ -257,60 +102,12 @@ api.interceptors.response.use(
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
         if (window.location.pathname !== "/auth/login") {
-          // Don't redirect in development mode
-          if (!USE_MOCK_DATA) {
-            window.location.href = "/auth/login";
-          }
-        }
-        
-        // In development mode, if this is a transaction-related request, return mock data
-        if (USE_MOCK_DATA && (originalRequest.url?.includes('/transactions') || originalRequest.url?.includes('/years'))) {
-          console.warn('[DEV] Using mock data for failed request', originalRequest.url);
-          
-          // Determine which mock data to use based on the endpoint
-          let mockData = {};
-          if (originalRequest.url?.includes('/years')) {
-            mockData = { years: MOCK_DATA.years };
-          } else {
-            mockData = { 
-              transactions: MOCK_DATA.transactions,
-              pagination: {
-                total: MOCK_DATA.transactions.length,
-                page: 1,
-                limit: 10,
-                pages: 1
-              }
-            };
-          }
-          
-          throw new ApiErrorWithFallback('Using mock data due to auth error', mockData);
+          window.location.href = "/auth/login";
         }
         
         return Promise.reject(error);
       } finally {
         isRefreshing = false;
-      }
-    }
-    
-    // In development mode, if this is a server error on any known endpoint, return mock data
-    if (USE_MOCK_DATA && error.response?.status >= 500) {
-      console.warn(`[DEV] Server error (${error.response.status}) for ${originalRequest.url}, using mock data`);
-      
-      // Determine which mock data to use based on the endpoint
-      if (originalRequest.url?.includes('/transactions')) {
-        return createMockResponse({ 
-          transactions: MOCK_DATA.transactions,
-          pagination: {
-            total: MOCK_DATA.transactions.length,
-            page: 1,
-            limit: 10,
-            pages: 1
-          }
-        }, originalRequest);
-      } else if (originalRequest.url?.includes('/categories')) {
-        return createMockResponse({ categories: MOCK_DATA.categories }, originalRequest);
-      } else if (originalRequest.url?.includes('/years')) {
-        return createMockResponse({ years: MOCK_DATA.years }, originalRequest);
       }
     }
 
@@ -321,20 +118,15 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: async (email: string, password: string) => {
-    try {
-      const response = await api.post("/auth/login", { email, password });
-      
-      // Only set tokens if we get a successful response with both tokens
-      if (response.data?.status === "success" && response.data?.token && response.data?.refreshToken) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("refreshToken", response.data.refreshToken);
-        api.defaults.headers.common["Authorization"] = `Bearer ${response.data.token}`;
-      }
-      return response.data;
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
+    const response = await api.post("/auth/login", { email, password });
+    
+    // Only set tokens if we get a successful response with both tokens
+    if (response.data?.status === "success" && response.data?.token && response.data?.refreshToken) {
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("refreshToken", response.data.refreshToken);
+      api.defaults.headers.common["Authorization"] = `Bearer ${response.data.token}`;
     }
+    return response.data;
   },
   
   register: (email: string, password: string, password_confirm: string, first_name: string, last_name: string, second_last_name: string, nickname: string) => {
@@ -376,7 +168,7 @@ export const transactionsAPI = {
     return api.post("/transactions", data);
   },
   update: (id: string, data: any) => {
-    return api.put(`/transactions/${id}`, data);
+    return api.patch(`/transactions/${id}`, data);
   },
   delete: (id: string) => {
     return api.delete(`/transactions/${id}`);
@@ -584,7 +376,7 @@ export const userAPI = {
   }
 }
 
-// Add or update the dashboardAPI object
+// Dashboard API
 export const dashboardAPI = {
   getOverview: () => {
     return api.get("/dashboard/overview")
@@ -601,4 +393,3 @@ export const dashboardAPI = {
 }
 
 export default api
-
