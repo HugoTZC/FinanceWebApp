@@ -365,8 +365,45 @@ const creditModel = {
    * @returns {Array} Spending by category
    */
   async getCardSpendingByCategory(cardId, userId, year, month) {
-    // Reuse the same logic as getCardSpending
-    return this.getCardSpending(cardId, userId, year, month);
+    // Fetch transactions for this user + credit card
+    const txResult = await db.query(
+      'SELECT * FROM public.transactions WHERE user_id = $1 AND credit_card_id = $2',
+      [userId, cardId]
+    );
+
+    // Fetch categories and user_categories for name lookup
+    const catsResult = await db.query('SELECT * FROM public.categories', []);
+    const userCatsResult = await db.query(
+      'SELECT * FROM public.user_categories WHERE user_id = $1',
+      [userId]
+    );
+
+    const catMap = {};
+    for (const c of catsResult.rows) catMap[c.id] = c.name;
+    const userCatMap = {};
+    for (const uc of userCatsResult.rows) userCatMap[uc.id] = uc.name;
+
+    // Filter by year, month (if provided), and type='expense'
+    const filtered = txResult.rows.filter(t => {
+      const txDate = new Date(t.transaction_date);
+      const yearMatch = txDate.getFullYear() === Number(year);
+      const monthMatch = !month || (txDate.getMonth() + 1) === Number(month);
+      return t.type === 'expense' && yearMatch && monthMatch;
+    });
+
+    // Group by category name and sum amounts
+    const spending = {};
+    for (const t of filtered) {
+      const categoryName = (t.category_id && catMap[t.category_id]) ||
+        (t.user_category_id && userCatMap[t.user_category_id]) ||
+        'Uncategorized';
+      spending[categoryName] = (spending[categoryName] || 0) + parseFloat(t.amount || 0);
+    }
+
+    // Convert to array and sort by amount descending
+    return Object.entries(spending)
+      .map(([category_name, amount]) => ({ category_name, amount }))
+      .sort((a, b) => b.amount - a.amount);
   },
   
   /**

@@ -400,17 +400,36 @@ const transactionModel = {
 
     const transactions = await db.query(transactionsQuery, [userId]);
 
+    console.log("[DEBUG getMonthlySummary] UserId:", userId, "Year:", year, "Month:", month);
+    console.log("[DEBUG getMonthlySummary] Total transactions found:", transactions.rows.length);
+    if (transactions.rows.length > 0) {
+      console.log("[DEBUG getMonthlySummary] Sample transaction types:", transactions.rows.slice(0, 5).map(t => t.type));
+      console.log("[DEBUG getMonthlySummary] Sample transaction amounts:", transactions.rows.slice(0, 5).map(t => t.amount));
+    }
+
     // Filter transactions by year and month in JavaScript
+    // Note: year and month from params are strings, need to convert to numbers for comparison
+    const yearNum = parseInt(year)
+    const monthNum = parseInt(month)
+    
     const filteredTransactions = transactions.rows.filter(t => {
       const date = new Date(t.transaction_date);
-      return date.getFullYear() === year && date.getMonth() + 1 === month;
+      const transactionYear = date.getFullYear();
+      const transactionMonth = date.getMonth() + 1;
+      
+      // Use explicit number comparison to avoid type coercion issues
+      const matches = transactionYear === yearNum && transactionMonth === monthNum;
+      return matches;
     });
+
+    console.log("[DEBUG getMonthlySummary] Filtered transactions for", year, "-", month, ":", filteredTransactions.length);
 
     // Calculate summary
     let totalIncome = 0;
     let totalExpenses = 0;
 
     filteredTransactions.forEach(t => {
+      console.log("[DEBUG] Transaction type:", t.type, "amount:", t.amount);
       if (t.type === 'income') {
         totalIncome += parseFloat(t.amount);
       } else if (t.type === 'expense') {
@@ -445,11 +464,14 @@ const transactionModel = {
     const userCategoryMap = new Map(userCategoriesResult.rows.map(c => [c.id, { name: c.name, type: c.type }]));
 
     // Filter transactions by year and month, then group by category
+    // Note: year and month from params are strings, need to convert to numbers
+    const yearNum = parseInt(year);
+    const monthNum = parseInt(month);
     const categoryBreakdown = new Map();
 
     transactionsResult.rows.forEach(t => {
       const date = new Date(t.transaction_date);
-      if (date.getFullYear() === year && date.getMonth() + 1 === month) {
+      if (date.getFullYear() === yearNum && date.getMonth() + 1 === monthNum) {
         const categoryId = t.category_id || t.user_category_id;
         const categoryData = t.category_id ?
           categoryMap.get(t.category_id) :

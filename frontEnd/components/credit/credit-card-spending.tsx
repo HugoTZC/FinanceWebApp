@@ -13,7 +13,7 @@ import { TransactionDetailsDialog } from "@/components/transactions/transaction-
 export function CreditCardSpending() {
   // Usamos useState con valor inicial null y asignamos el valor en useEffect
   const [selectedCard, setSelectedCard] = useState<string>("")
-  const [selectedMonth, setSelectedMonth] = useState<string>("") // Usar un valor vacío inicialmente
+  const [selectedMonth, setSelectedMonth] = useState<string>("all") // Use "all" for all months instead of empty string
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()) // Usar el año actual dinámicamente
   
   // State for API data
@@ -85,10 +85,10 @@ export function CreditCardSpending() {
         setIsLoading(true)
         const response = await creditAPI.getCardMonthlySpending(selectedCard, selectedYear)
         console.log('Monthly spending response:', response)
-        if (response?.data?.spending) {
-          setMonthlySpending(response.data.spending)
+        if (response?.data?.data?.spending) {
+          setMonthlySpending(response.data.data.spending)
         } else {
-          console.error("Monthly spending data is undefined or in unexpected format")
+          console.error("Monthly spending data is undefined or in unexpected format", response?.data)
           setMonthlySpending([])
         }
       } catch (error) {
@@ -105,20 +105,22 @@ export function CreditCardSpending() {
   // Fetch category spending data when card, year, or month changes
   useEffect(() => {
     async function fetchCategorySpending() {
-      if (!selectedCard || !selectedMonth) return
+      if (!selectedCard) return
 
       try {
         setIsLoading(true)
+        // Convert "all" to empty string for backend API
+        const monthForApi = selectedMonth === "all" ? "" : selectedMonth
         const response = await creditAPI.getCardSpendingByCategory(
           selectedCard,
           selectedYear,
-          selectedMonth
+          monthForApi
         )
         console.log('Category spending response:', response)
-        if (response?.data?.categories) {
-          setCategorySpending(response.data.categories)
+        if (response?.data?.data?.categories) {
+          setCategorySpending(response.data.data.categories)
         } else {
-          console.error("Category spending data is undefined or in unexpected format")
+          console.error("Category spending data is undefined or in unexpected format", response?.data)
           setCategorySpending([])
         }
       } catch (error) {
@@ -139,11 +141,14 @@ export function CreditCardSpending() {
 
       try {
         setIsLoading(true)
-        const transactions = await creditAPI.getCardSpending(selectedCard, selectedYear, selectedMonth)
-        if (transactions?.data?.transactions) {
-          setRecentTransactions(transactions.data.transactions)
+        // Convert "all" to empty string for backend API
+        const monthForApi = selectedMonth === "all" ? "" : selectedMonth
+        const transactions = await creditAPI.getCardSpending(selectedCard, selectedYear, monthForApi)
+        console.log('Recent transactions response:', transactions)
+        if (transactions?.data?.data?.transactions) {
+          setRecentTransactions(transactions.data.data.transactions)
         } else {
-          console.error("Transactions data is undefined or in unexpected format")
+          console.error("Transactions data is undefined or in unexpected format", transactions?.data)
           setRecentTransactions([])
         }
       } catch (error) {
@@ -172,26 +177,29 @@ export function CreditCardSpending() {
         try {
           setIsLoading(true)
           
+          // Convert "all" to empty string for backend API
+          const monthForApi = selectedMonth === "all" ? "" : selectedMonth
+          
           // Refresh transactions data
-          const transactions = await creditAPI.getCardSpending(selectedCard, selectedYear, selectedMonth)
-          if (transactions?.data?.transactions) {
-            setRecentTransactions(transactions.data.transactions)
+          const transactions = await creditAPI.getCardSpending(selectedCard, selectedYear, monthForApi)
+          if (transactions?.data?.data?.transactions) {
+            setRecentTransactions(transactions.data.data.transactions)
           }
           
           // Refresh category spending
           const catResponse = await creditAPI.getCardSpendingByCategory(
             selectedCard,
             selectedYear,
-            selectedMonth
+            monthForApi
           )
-          if (catResponse?.data?.categories) {
-            setCategorySpending(catResponse.data.categories)
+          if (catResponse?.data?.data?.categories) {
+            setCategorySpending(catResponse.data.data.categories)
           }
           
           // Refresh monthly spending
           const monthlyResponse = await creditAPI.getCardMonthlySpending(selectedCard, selectedYear)
-          if (monthlyResponse?.data?.spending) {
-            setMonthlySpending(monthlyResponse.data.spending)
+          if (monthlyResponse?.data?.data?.spending) {
+            setMonthlySpending(monthlyResponse.data.data.spending)
           }
         } catch (error) {
           console.error("Failed to refresh data after transaction update:", error)
@@ -250,6 +258,7 @@ export function CreditCardSpending() {
               <SelectValue placeholder="Month" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">All months</SelectItem>
               <SelectItem value="Jan">January</SelectItem>
               <SelectItem value="Feb">February</SelectItem>
               <SelectItem value="Mar">March</SelectItem>

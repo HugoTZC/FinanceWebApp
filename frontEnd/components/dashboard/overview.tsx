@@ -51,13 +51,22 @@ export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
       try {
         setIsLoading(true)
         const currentYear = new Date().getFullYear()
+        console.log("[Overview] Fetching monthly data for year:", currentYear)
         const response = await dashboardAPI.getMonthlyData(currentYear)
+        console.log("[Overview] API Response:", response)
+        console.log("[Overview] response.data:", response?.data)
+        console.log("[Overview] response.data.data:", response?.data?.data)
         
-        if (response?.data?.data) {
+        if (response?.data?.data && response.data.data.length > 0) {
+          console.log("[Overview] Setting API data:", response.data.data)
+          console.log("[Overview] Data values - income:", response.data.data.map(d => d.income))
+          console.log("[Overview] Data values - expenses:", response.data.data.map(d => d.expenses))
           setApiData(response.data.data)
+        } else {
+          console.log("[Overview] No data from API, will use fallback sampleData")
         }
       } catch (error) {
-        console.error("Failed to fetch overview data:", error)
+        console.error("[Overview] Failed to fetch overview data:", error)
       } finally {
         setIsLoading(false)
       }

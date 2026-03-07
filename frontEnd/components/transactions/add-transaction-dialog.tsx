@@ -433,8 +433,10 @@ export function AddTransactionDialog() {
           // Get the current card data
           const cardResponse = await creditAPI.getCardById(selectedCard)
           
-          if (cardResponse?.data?.card) {
-            const card = cardResponse.data.card
+          console.log("[TRANSACTION] Credit card response:", cardResponse)
+          
+          if (cardResponse?.data?.status === 'success' && cardResponse?.data?.data?.card) {
+            const card = cardResponse.data.data.card
             
             console.log("[TRANSACTION] Updating credit card balance:", {
               oldBalance: card.balance,
@@ -450,10 +452,11 @@ export function AddTransactionDialog() {
             
             console.log("[TRANSACTION] Credit card balance updated successfully")
           } else {
-            console.error("[TRANSACTION] Could not get credit card data:", cardResponse)
+            console.warn("[TRANSACTION] Could not get credit card data - card may not exist or was deleted:", cardResponse)
+            // Don't show error toast - the transaction was created successfully
           }
-        } catch (cardError) {
-          console.error("[TRANSACTION] Error updating credit card balance:", cardError)
+        } catch (cardError: any) {
+          console.error("[TRANSACTION] Error updating credit card balance:", cardError?.message || cardError)
           // No fallamos toda la operación si solo falla la actualización de la tarjeta
           // porque la transacción ya fue creada exitosamente
           toast({

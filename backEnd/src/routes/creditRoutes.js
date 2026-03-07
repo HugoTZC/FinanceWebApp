@@ -28,6 +28,7 @@ router.route("/cards/:id").get(getCardById).put(updateCard).delete(deleteCard)
 
 router.get("/cards/:id/spending", getCardSpending)
 router.get("/cards/:id/spending/categories/:year/:month", getCardSpendingByCategory)
+router.get("/cards/:id/spending/categories/:year", getCardSpendingByCategory) // New route for year-only (all months)
 router.get("/cards/:id/spending/monthly/:year", getCardMonthlySpending)
 
 // Loan routes

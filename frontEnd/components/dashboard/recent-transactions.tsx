@@ -178,21 +178,32 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
         const systemCategories = systemCategoriesResponse?.data?.data?.categories || []
         const userCategories = userCategoriesResponse?.data?.data?.categories || []
         
-        // Combine and format categories
-        const allCategories = [
-          ...systemCategories.map((cat: any) => ({
-            id: cat.id,
-            name: cat.name,
-            type: cat.type,
-            source: 'system'
-          })),
-          ...userCategories.map((cat: any) => ({
-            id: cat.id,
-            name: cat.name,
-            type: cat.type,
-            source: 'user'
-          }))
-        ]
+        // Combine and format categories (deduplicate by ID since /categories returns both default + user)
+        const categoryMap = new Map()
+        
+        systemCategories.forEach((cat: any) => {
+          if (!categoryMap.has(cat.id)) {
+            categoryMap.set(cat.id, {
+              id: cat.id,
+              name: cat.name,
+              type: cat.type,
+              source: 'system'
+            })
+          }
+        })
+        
+        userCategories.forEach((cat: any) => {
+          if (!categoryMap.has(cat.id)) {
+            categoryMap.set(cat.id, {
+              id: cat.id,
+              name: cat.name,
+              type: cat.type,
+              source: 'user'
+            })
+          }
+        })
+        
+        const allCategories = Array.from(categoryMap.values())
         
         if (allCategories.length > 0) {
           console.log("[TRANSACTIONS] Categorías cargadas:", allCategories.length)

@@ -360,13 +360,14 @@ exports.getCardSpending = async (req, res, next) => {
 /**
  * Get credit card spending by category
  * @route GET /api/credit/cards/:id/spending/categories/:year/:month
+ * @route GET /api/credit/cards/:id/spending/categories/:year
  */
 exports.getCardSpendingByCategory = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { id, year, month } = req.params;
     
-    // Get card spending by category
+    // Get card spending by category (month can be undefined for year-only route)
     const categories = await creditModel.getCardSpendingByCategory(id, userId, year, month);
     
     res.status(200).json({

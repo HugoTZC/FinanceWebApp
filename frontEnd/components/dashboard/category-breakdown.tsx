@@ -87,20 +87,32 @@ export function CategoryBreakdown({ selectedMonth }: CategoryBreakdownProps) {
           const monthNumber = monthNames.indexOf(selectedMonth) + 1
           
           if (monthNumber > 0) {
+            console.log("[CategoryBreakdown] Fetching for month:", selectedMonth, "(", monthNumber, ") year:", currentYear)
             const response = await dashboardAPI.getCategoryBreakdown(currentYear, monthNumber.toString())
+            console.log("[CategoryBreakdown] API Response:", response)
+            console.log("[CategoryBreakdown] response.data.data:", response?.data?.data)
             if (response?.data?.data) {
+              console.log("[CategoryBreakdown] Setting API data:", response.data.data)
               setApiData(response.data.data)
+            } else {
+              console.log("[CategoryBreakdown] No data from API, will use fallback")
             }
           }
         } else {
           // Otherwise fetch data for the current month
+          console.log("[CategoryBreakdown] Fetching for current month, year:", currentYear)
           const response = await dashboardAPI.getCategoryBreakdown(currentYear)
+          console.log("[CategoryBreakdown] API Response:", response)
+          console.log("[CategoryBreakdown] response.data.data:", response?.data?.data)
           if (response?.data?.data) {
+            console.log("[CategoryBreakdown] Setting API data:", response.data.data)
             setApiData(response.data.data)
+          } else {
+            console.log("[CategoryBreakdown] No data from API, will use fallback")
           }
         }
       } catch (error) {
-        console.error("Failed to fetch category breakdown data:", error)
+        console.error("[CategoryBreakdown] Failed to fetch category breakdown data:", error)
       } finally {
         setIsLoading(false)
       }

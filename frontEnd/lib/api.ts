@@ -307,7 +307,12 @@ export const creditAPI = {
     return api.get(`/credit/cards/${cardId}/spending`, { params: { year, month } })
   },
   getCardSpendingByCategory: (cardId: string, year: number, month: string) => {
-    return api.get(`/credit/cards/${cardId}/spending/categories/${year}/${month}`)
+    // Use different endpoint based on whether month is provided
+    if (month) {
+      return api.get(`/credit/cards/${cardId}/spending/categories/${year}/${month}`)
+    } else {
+      return api.get(`/credit/cards/${cardId}/spending/categories/${year}`)
+    }
   },
   getCardMonthlySpending: (cardId: string, year: number) => {
     return api.get(`/credit/cards/${cardId}/spending/monthly/${year}`)

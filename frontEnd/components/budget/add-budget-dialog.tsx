@@ -52,22 +52,34 @@ export function AddBudgetDialog({ onBudgetAdded }: AddBudgetDialogProps) {
         const userCategories = userCategoriesResponse.data.data.categories || []
         
         // Combine and format categories
-        const allCategories = [
-          ...systemCategories.map((cat: any) => ({
-            id: cat.id,
-            name: cat.name,
-            type: cat.type,
-            category_group: cat.category_group,
-            is_user_category: false
-          })),
-          ...userCategories.map((cat: any) => ({
-            id: cat.id,
-            name: cat.name,
-            type: cat.type,
-            category_group: cat.category_group,
-            is_user_category: true
-          }))
-        ]
+        // Use a Map to deduplicate by category ID (since /categories returns both default + user, and we also call /categories/user)
+        const categoryMap = new Map()
+        
+        systemCategories.forEach((cat: any) => {
+          if (!categoryMap.has(cat.id)) {
+            categoryMap.set(cat.id, {
+              id: cat.id,
+              name: cat.name,
+              type: cat.type,
+              category_group: cat.category_group,
+              is_user_category: false
+            })
+          }
+        })
+        
+        userCategories.forEach((cat: any) => {
+          if (!categoryMap.has(cat.id)) {
+            categoryMap.set(cat.id, {
+              id: cat.id,
+              name: cat.name,
+              type: cat.type,
+              category_group: cat.category_group,
+              is_user_category: true
+            })
+          }
+        })
+        
+        const allCategories = Array.from(categoryMap.values())
         
         setApiCategories(allCategories)
       } catch (error) {

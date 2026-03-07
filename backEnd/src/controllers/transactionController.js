@@ -53,24 +53,38 @@ exports.createTransaction = async (req, res, next) => {
       
       // Buscar la categoría directamente por su ID
       // Primero intentamos buscar en las categorías predeterminadas
+      let categorySource = 'default'; // Track which table the category came from
       let matchingCategory = await categoryModel.findById(category);
       
       // Si no se encuentra en las categorías predeterminadas, podría ser una categoría personalizada
       if (!matchingCategory) {
         console.log(`🔍 [createTransaction] Category not found in default categories, checking user categories`);
+        categorySource = 'user';
         matchingCategory = await categoryModel.findUserCategoryById(category, userId);
       }
+      
+      console.log(`🔍 [createTransaction] DEBUG: Category source = "${categorySource}", found = ${matchingCategory ? 'yes' : 'no'}`);
       
       if (!matchingCategory) {
         console.warn(`⚠️ [createTransaction] Invalid category ID requested: "${category}"`);
         return next(new AppError('Invalid category ID', 400));
       }
       
-      console.log(`✓ [createTransaction] Matched category: ${matchingCategory.name} (ID: ${matchingCategory.id})`);
+      console.log(`✓ [createTransaction] Matched category: ${matchingCategory.name} (ID: ${matchingCategory.id}) from ${categorySource} categories`);
       
       // Configuración de método de pago y cuentas según el tipo de transacción
       // y considerando la restricción de verificación de la base de datos
       let actualPaymentMethod, actualBankAccountId = null, actualCreditCardId = null;
+      let actualCategoryId = null, actualUserCategoryId = null;
+      
+      // Set the appropriate category field based on source
+      if (categorySource === 'default') {
+        actualCategoryId = matchingCategory.id;
+        console.log(`🔍 [createTransaction] DEBUG: Using category_id=${actualCategoryId} for default category`);
+      } else {
+        actualUserCategoryId = matchingCategory.id;
+        console.log(`🔍 [createTransaction] DEBUG: Using user_category_id=${actualUserCategoryId} for user category`);
+      }
       
       if (type === 'income') {
         // Para ingresos, usamos 'cash' ya que es compatible con la restricción
@@ -109,7 +123,8 @@ exports.createTransaction = async (req, res, next) => {
         amount,
         transaction_date,
         type,
-        category_id: matchingCategory.id,
+        category_id: actualCategoryId,
+        user_category_id: actualUserCategoryId,
         payment_method: actualPaymentMethod,
         bank_account_id: actualBankAccountId,
         credit_card_id: actualCreditCardId,
