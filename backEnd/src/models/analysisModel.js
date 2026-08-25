@@ -34,6 +34,27 @@ const AnalysisModel = {
       };
     }
 
+    // Incremental Python API integration. Vercel injects PYTHON_API_URL through
+    // the service binding; the localhost fallback preserves split local dev.
+    const pythonApiUrl = process.env.PYTHON_API_URL || 'http://localhost:8000';
+    try {
+      const res = await fetch(new URL('/pago-minimo', pythonApiUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saldo: 5000, banco: 'mercado_pago' })
+      });
+      if (!res.ok) {
+        throw new Error(`Python API responded with ${res.status}`);
+      }
+      const data = await res.json();
+      console.log('Estimated minimum payment:', data.pago_minimo);
+    } catch (error) {
+      // Analysis remains available while endpoints are migrated incrementally.
+      console.warn('Python API unavailable; continuing with legacy analysis:', error.message);
+    }
+
+
+
     const budgetPeriod = periodResult.rows[0];
 
     // Fetch budget categories for this period

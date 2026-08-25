@@ -59,8 +59,8 @@ export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
         
         if (response?.data?.data && response.data.data.length > 0) {
           console.log("[Overview] Setting API data:", response.data.data)
-          console.log("[Overview] Data values - income:", response.data.data.map(d => d.income))
-          console.log("[Overview] Data values - expenses:", response.data.data.map(d => d.expenses))
+          console.log("[Overview] Data values - income:", response.data.data.map((d: { income?: number }) => d.income))
+          console.log("[Overview] Data values - expenses:", response.data.data.map((d: { expenses?: number }) => d.expenses))
           setApiData(response.data.data)
         } else {
           console.log("[Overview] No data from API, will use fallback sampleData")

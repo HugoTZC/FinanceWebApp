@@ -17,8 +17,10 @@ const processQueue = (error: unknown = null) => {
   failedQueue = [];
 };
 
+const defaultApiUrl = process.env.NODE_ENV === "production" ? "/api" : "http://localhost:5000/api"
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_LEGACY_API_URL || defaultApiUrl,
   headers: {
     "Content-Type": "application/json",
   },

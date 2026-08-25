@@ -10,7 +10,10 @@ router.get('/overview', dashboardController.getDashboardOverview);
 router.get('/monthly/:year', dashboardController.getMonthlyData);
 
 // Category breakdown
-router.get('/categories/:year/:month?', dashboardController.getCategoryBreakdown);
+router.get(
+  ['/categories/:year', '/categories/:year/:month'],
+  dashboardController.getCategoryBreakdown
+);
 
 // Recent transactions
 router.get('/transactions/recent', dashboardController.getRecentTransactions);
