@@ -10,8 +10,6 @@ const logger = require('../utils/logger');
 exports.protect = async (req, res, next) => {
   try {
     logger.info('🔒 Authentication middleware started');
-    logger.debug('Headers:', JSON.stringify(req.headers));
-    logger.debug('Cookies:', JSON.stringify(req.cookies));
 
     // 1) Get token from header or cookies
     let token;
@@ -32,14 +30,10 @@ exports.protect = async (req, res, next) => {
       });
     }
 
-    logger.debug('Token:', token);
-
     // 2) Verify token with specific error handling
     try {
       logger.info('🔍 Verifying token');
       const decoded = jwt.verify(token, config.jwt.secret);
-      logger.debug('Decoded token:', decoded);
-
       // 3) Check if user still exists
       logger.info(`👤 Looking up user with ID: ${decoded.id}`);
       const user = await userModel.findById(decoded.id);

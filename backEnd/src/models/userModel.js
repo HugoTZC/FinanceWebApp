@@ -277,12 +277,7 @@ const userModel = {
    * @returns {boolean} Match result
    */
   async comparePassword(candidatePassword, hashedPassword) {
-    console.log('🔍 Comparing password with hash:');
-    console.log('📝 Candidate password:', candidatePassword);
-    console.log('🔒 Stored hash:', hashedPassword);
-    const result = await bcrypt.compare(candidatePassword, hashedPassword);
-    console.log('✅ Password comparison result:', result);
-    return result;
+    return bcrypt.compare(candidatePassword, hashedPassword);
   }
 };
 

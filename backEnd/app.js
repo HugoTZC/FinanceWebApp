@@ -3,7 +3,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const xss = require('xss-clean');
+const { clean: cleanXss } = require('xss-clean/lib/xss');
 const hpp = require('hpp');
 const cookieParser = require('cookie-parser');
 const compression = require('compression');
@@ -26,17 +26,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Handle preflight requests explicitly (optional but recommended)
-app.options('*', cors(corsOptions));
-
-// Debugging middleware (move earlier in the chain)
-app.use((req, res, next) => {
-  console.log('Request Origin:', req.headers.origin);
-  console.log('Request Method:', req.method);
-  if (req.headers.authorization) {
-    console.log('Authorization header present:', !!req.headers.authorization);
-  }
-  next();
-});
+app.options('/{*splat}', cors(corsOptions));
 
 // Set security HTTP headers
 app.use(helmet());
@@ -70,8 +60,20 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
-// Data sanitization against XSS
-app.use(xss());
+// Keep the existing XSS sanitization while supporting Express 5, where
+// req.query is exposed through a read-only prototype getter.
+app.use((req, res, next) => {
+  if (req.body) req.body = cleanXss(req.body);
+  if (req.query) {
+    Object.defineProperty(req, 'query', {
+      value: cleanXss(req.query),
+      configurable: true,
+      enumerable: true
+    });
+  }
+  if (req.params) req.params = cleanXss(req.params);
+  next();
+});
 
 // Prevent parameter pollution
 app.use(hpp({
@@ -92,7 +94,7 @@ app.use(compression());
 app.use('/api', routes);
 
 // Handle undefined routes
-app.all('*', (req, res, next) => {
+app.all('/{*splat}', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 

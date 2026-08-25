@@ -1,3 +1,68 @@
-# FinanceWebApp
+# MX Finanzas Personal
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/HugoTZC/FinanceWebApp)
+Aplicación de finanzas personales enfocada en México. El frontend existente se conserva en Next.js y el backend se migra de Express a FastAPI de forma incremental.
+
+## Arquitectura de despliegue
+
+El repositorio se publica como **un solo proyecto de Vercel Services y un solo dominio**:
+
+- `/` → `frontEnd/` (Next.js).
+- `/api/*` → `backEnd/` (Express legado durante la migración).
+- `/api/v2/*` → `pythonApi/` (FastAPI).
+- Express llama a FastAPI mediante un service binding privado (`PYTHON_API_URL`).
+
+La configuración está en `vercel.json`. En Vercel, el Framework Preset del proyecto debe ser **Services**.
+
+## Desarrollo local separado
+
+```powershell
+# Terminal 1
+cd frontEnd
+npm install
+npm run dev
+
+# Terminal 2
+cd backEnd
+npm install
+npm run dev
+
+# Terminal 3
+cd pythonApi
+python -m pip install -r requirements-dev.txt
+python -m uvicorn app:app --reload --port 8000
+```
+
+En Linux/macOS también se pueden levantar los tres componentes desde la raíz con `vercel dev -L`. Vercel CLI 59.5.0 tiene actualmente un fallo local en Windows al generar rutas Python sin escapar; usa los tres procesos separados o WSL hasta que se corrija.
+
+> No ejecutes `next build` mientras `next dev` esté usando el mismo directorio `frontEnd/.next`; detén el servidor de desarrollo primero o usa una copia aislada.
+
+## Variables requeridas en Vercel
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` (solo servidor)
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `NODE_ENV=production`
+
+No configures `NEXT_PUBLIC_API_URL` en producción: el frontend usa `/api` en el mismo dominio. Nunca expongas `SUPABASE_SERVICE_ROLE_KEY` con un prefijo `NEXT_PUBLIC_`.
+
+## Verificación
+
+```powershell
+cd pythonApi
+python -m pytest
+
+cd ..\frontEnd
+npm run build
+
+cd ..\backEnd
+npm test -- --runInBand
+```
+
+La verificación actual cubre la salud del backend legado y cuatro casos de FastAPI. El frontend también se valida con TypeScript durante `next build`.
+
+## Documentación de producto
+
+- [PDR](docs/PDR.md)
+- [Fase 1 — MVP](docs/phases/phase-01-mvp.md)
+- [Auditoría técnica](docs/audit-2026-08-24.md)

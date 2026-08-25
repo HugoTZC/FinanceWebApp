@@ -151,8 +151,6 @@ exports.logout = (req, res) => {
 exports.protect = async (req, res, next) => {
   try {
     logger.info('🔒 Authentication middleware started');
-    logger.debug('Headers:', req.headers);
-    logger.debug('Cookies:', req.cookies);
     
     const currentTime = new Date();
     logger.info('⏰ Current server time:', currentTime.toISOString());
@@ -383,13 +381,10 @@ exports.forgotPassword = async (req, res, next) => {
     // Save reset token to user
     await userModel.saveResetToken(user.id, passwordResetToken, passwordResetExpires);
     
-    // Send email with reset token (implementation would depend on email service)
-    // For now, we'll just return the token in the response (not for production)
-    
+    // TODO: send the un-hashed reset token through a transactional email provider.
     res.status(200).json({
       status: 'success',
-      message: 'Token sent to email',
-      resetToken // Remove this in production
+      message: 'If the account exists, password reset instructions will be sent.'
     });
   } catch (error) {
     next(error);
