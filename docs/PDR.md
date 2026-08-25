@@ -33,7 +33,7 @@ El producto deberá construir un historial financiero consistente que, en fases 
 
 | Fase | Nombre | Estado | Documento |
 | --- | --- | --- | --- |
-| 1 | MVP: registro financiero y deudas de tarjeta | Definida | [Fase 1](phases/phase-01-mvp.md) |
+| 1 | MVP: registro financiero y deudas de tarjeta | En migración incremental | [Fase 1](phases/phase-01-mvp.md) |
 | 2 | Resúmenes, presupuestos y calendario de pagos | Por definir | Pendiente |
 | 3 | Automatización, importación y notificaciones | Por definir | Pendiente |
 | 4 | Análisis de patrones y machine learning | Por definir | Pendiente |
@@ -44,3 +44,14 @@ El producto deberá construir un historial financiero consistente que, en fases 
 - Declaraciones fiscales o contabilidad profesional.
 - Recomendaciones automatizadas y modelos de machine learning.
 - Soporte para múltiples monedas.
+
+## Estado técnico de la migración
+
+FastAPI `0.2.0` incluye la primera rebanada compatible del MVP bajo
+`/api/v2`: cuentas, categorías, lecturas de transacciones y tarjetas de
+crédito. Todas las consultas filtran por el usuario derivado del JWT; el cliente
+no puede proporcionar ni reemplazar `user_id`.
+
+Express continúa atendiendo `/api` y conserva las operaciones no portadas. No
+se realizará el corte de tráfico hasta completar la rotación de credenciales,
+validar Preview y probar que las mutaciones que afectan saldos son atómicas.

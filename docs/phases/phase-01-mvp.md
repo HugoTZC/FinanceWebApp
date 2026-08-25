@@ -68,3 +68,26 @@ Al finalizar esta fase, el usuario podrá consultar un registro de sus movimient
 ## Referencias
 
 - Documento maestro: [PDR](../PDR.md).
+
+## Avance de implementación — FastAPI 0.2.0
+
+Primera rebanada migrada y cubierta por pruebas de contrato:
+
+- CRUD de cuentas bancarias y balance histórico mensual.
+- Lectura combinada de categorías y CRUD de categorías propias.
+- Lectura, filtrado, paginación, detalle y años de transacciones.
+- CRUD de tarjetas de crédito y lectura de sus movimientos.
+- Compatibilidad con el JWT emitido por Express y ownership server-side.
+
+El corte está disponible únicamente en `/api/v2`. Las escrituras de
+transacciones y pagos que modifican saldos siguen en Express porque requieren
+una operación atómica entre movimiento, cuenta y deuda de tarjeta. También
+siguen en Express autenticación, usuarios, préstamos, presupuestos, ahorros y
+notificaciones.
+
+Antes de dirigir el frontend a FastAPI se requiere:
+
+1. completar la rotación pendiente de la clave Supabase de Preview;
+2. validar el despliegue Preview de punta a punta;
+3. implementar una transacción atómica para movimientos y ajustes de saldo;
+4. comparar respuestas Express/FastAPI con datos de prueba del mismo usuario.

@@ -5,6 +5,9 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from mvp_api import router as mvp_router
+from supabase_client import SupabaseConfigurationError, SupabaseRequestError
+
 
 PUBLIC_PREFIX = "/api/v2"
 IVA = 0.16
@@ -67,19 +70,44 @@ class MinimumPaymentResponse(BaseModel):
 app = FastAPI(
     title="MX Finanzas API",
     description="API Python para la migración incremental del backend financiero.",
-    version="0.1.0",
+    version="0.2.0",
 )
 app.add_middleware(ServicePrefixMiddleware, prefix=PUBLIC_PREFIX)
+app.include_router(mvp_router)
+
+
+@app.exception_handler(SupabaseConfigurationError)
+async def handle_supabase_configuration_error(
+    _request: Any, _error: SupabaseConfigurationError
+) -> Any:
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=503,
+        content={"status": "error", "message": "Data service is not configured"},
+    )
+
+
+@app.exception_handler(SupabaseRequestError)
+async def handle_supabase_request_error(
+    _request: Any, _error: SupabaseRequestError
+) -> Any:
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=502,
+        content={"status": "error", "message": "Data service request failed"},
+    )
 
 
 @app.get("/")
 def root() -> dict[str, str]:
-    return {"status": "ok", "service": "python-api", "version": "0.1.0"}
+    return {"status": "ok", "service": "python-api", "version": "0.2.0"}
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "python-api", "version": "0.1.0"}
+    return {"status": "ok", "service": "python-api", "version": "0.2.0"}
 
 
 @app.get("/bancos")

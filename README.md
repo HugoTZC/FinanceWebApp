@@ -11,6 +11,11 @@ El repositorio se publica como **un solo proyecto de Vercel Services y un solo d
 - `/api/v2/*` → `pythonApi/` (FastAPI).
 - Express llama a FastAPI mediante un service binding privado (`PYTHON_API_URL`).
 
+La primera rebanada del MVP ya está disponible en `/api/v2` con contratos de
+respuesta compatibles para cuentas, categorías, lectura de transacciones y
+tarjetas de crédito. El frontend continúa en `/api` hasta completar la rotación
+de credenciales y validar Preview; no se ha cambiado tráfico de producción.
+
 La configuración está en `vercel.json`. En Vercel, el Framework Preset del proyecto debe ser **Services**.
 
 ## Desarrollo local separado
@@ -29,6 +34,9 @@ npm run dev
 # Terminal 3
 cd pythonApi
 python -m pip install -r requirements-dev.txt
+$env:SUPABASE_URL="<local-only>"
+$env:SUPABASE_SERVICE_ROLE_KEY="<local-only>"
+$env:JWT_SECRET="<local-only>"
 python -m uvicorn app:app --reload --port 8000
 ```
 
@@ -59,7 +67,22 @@ cd ..\backEnd
 npm test -- --runInBand
 ```
 
-La verificación actual cubre la salud del backend legado y cuatro casos de FastAPI. El frontend también se valida con TypeScript durante `next build`.
+La verificación actual cubre la salud del backend legado y 14 casos de FastAPI,
+incluidos autenticación, ownership, contratos financieros y encabezados seguros
+para claves Supabase modernas. El frontend también se valida con TypeScript
+durante `next build`.
+
+### Rutas migradas en modo de revisión
+
+- Cuentas: CRUD y lectura de historial mensual.
+- Categorías: lectura combinada y CRUD de categorías de usuario.
+- Transacciones: listado filtrado/paginado, detalle y años disponibles.
+- Tarjetas: CRUD y lectura de movimientos por tarjeta.
+- Deuda: cálculo de pago mínimo ya existente en FastAPI.
+
+Las escrituras de transacciones, pagos que ajustan saldos, préstamos,
+presupuestos, ahorros, notificaciones, usuarios y autenticación permanecen en
+Express hasta que cada rebanada tenga pruebas de consistencia y rollback.
 
 ## Documentación de producto
 
