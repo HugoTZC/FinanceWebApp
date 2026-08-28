@@ -87,19 +87,19 @@ export function DashboardHeader() {
             <span className="hidden font-bold sm:inline-block">FinApp</span>
           </Link>
           <nav className="flex items-center space-x-6 text-sm font-medium">
-            <Link href="/dashboard" className="transition-colors hover:text-foreground/80 text-foreground">
+            <Link href="/#overview" className="transition-colors hover:text-foreground/80 text-foreground">
               Dashboard
             </Link>
-            <Link href="/transactions" className="transition-colors hover:text-foreground/80 text-muted-foreground">
+            <Link href="/#transactions" className="transition-colors hover:text-foreground/80 text-muted-foreground">
               Transactions
             </Link>
-            <Link href="/budget" className="transition-colors hover:text-foreground/80 text-muted-foreground">
+            <Link href="/#budget" className="transition-colors hover:text-foreground/80 text-muted-foreground">
               Budget
             </Link>
-            <Link href="/savings" className="transition-colors hover:text-foreground/80 text-muted-foreground">
+            <Link href="/#savings" className="transition-colors hover:text-foreground/80 text-muted-foreground">
               Savings
             </Link>
-            <Link href="/credit" className="transition-colors hover:text-foreground/80 text-muted-foreground">
+            <Link href="/#credit" className="transition-colors hover:text-foreground/80 text-muted-foreground">
               Credit
             </Link>
           </nav>

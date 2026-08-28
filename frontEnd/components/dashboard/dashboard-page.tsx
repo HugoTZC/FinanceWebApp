@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Overview } from "@/components/dashboard/overview"
@@ -12,6 +12,9 @@ import { BudgetProgress } from "@/components/dashboard/budget-progress"
 import { AnalysisTab } from "@/components/dashboard/analysis-tab"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardCards } from "@/components/dashboard/dashboard-cards"
+import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog"
+
+const dashboardTabs = new Set(["overview", "transactions", "budget", "savings", "credit", "analysis"])
 
 export function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -21,23 +24,42 @@ export function DashboardPage() {
     setSelectedMonth(month === selectedMonth ? undefined : month)
   }
 
+  useEffect(() => {
+    const syncTabFromHash = () => {
+      const requestedTab = window.location.hash.slice(1)
+      setActiveTab(dashboardTabs.has(requestedTab) ? requestedTab : "overview")
+    }
+
+    syncTabFromHash()
+    window.addEventListener("hashchange", syncTabFromHash)
+    return () => window.removeEventListener("hashchange", syncTabFromHash)
+  }, [])
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+    window.history.replaceState(null, "", `#${tab}`)
+  }
+
   return (
     <>
       <DashboardHeader />
-      <main className="flex-1 p-4 md:p-6 space-y-6">
-        <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's an overview of your finances.</p>
+      <main className="min-w-0 flex-1 space-y-4 overflow-x-hidden p-3 sm:p-4 md:space-y-6 md:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="hidden min-w-0 space-y-1 sm:block">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
+            <p className="text-sm text-muted-foreground sm:text-base">Welcome back! Here's an overview of your finances.</p>
+          </div>
+          <AddTransactionDialog triggerClassName="h-12 w-full justify-center border-amber-400 bg-amber-400 text-base font-semibold text-amber-950 shadow-sm hover:border-amber-300 hover:bg-amber-300 sm:w-auto md:hidden" />
         </div>
 
-        <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            <TabsTrigger value="budget">Budget</TabsTrigger>
-            <TabsTrigger value="savings">Savings</TabsTrigger>
-            <TabsTrigger value="credit">Credit</TabsTrigger>
-            <TabsTrigger value="analysis">Analysis</TabsTrigger>
+        <Tabs defaultValue="overview" value={activeTab} onValueChange={handleTabChange} className="min-w-0 space-y-4">
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto p-1 md:grid md:grid-cols-6 md:overflow-visible">
+            <TabsTrigger className="min-w-[96px] flex-none md:min-w-0" value="overview">Overview</TabsTrigger>
+            <TabsTrigger className="min-w-[112px] flex-none md:min-w-0" value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger className="min-w-[96px] flex-none md:min-w-0" value="budget">Budget</TabsTrigger>
+            <TabsTrigger className="min-w-[96px] flex-none md:min-w-0" value="savings">Savings</TabsTrigger>
+            <TabsTrigger className="min-w-[88px] flex-none md:min-w-0" value="credit">Credit</TabsTrigger>
+            <TabsTrigger className="min-w-[96px] flex-none md:min-w-0" value="analysis">Analysis</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -45,8 +67,8 @@ export function DashboardPage() {
             <DashboardCards />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="lg:col-span-4">
-                <CardHeader>
+              <Card className="min-w-0 lg:col-span-4">
+                <CardHeader className="p-4 sm:p-6">
                   <CardTitle>Overview</CardTitle>
                   <CardDescription>
                     Your income and expenses for the past 6 months.
@@ -55,39 +77,39 @@ export function DashboardPage() {
                     )}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="pl-2">
+                <CardContent className="px-2 pb-4 sm:pb-6 sm:pl-2 sm:pr-6">
                   <Overview onMonthSelect={handleMonthSelect} selectedMonth={selectedMonth} />
                 </CardContent>
               </Card>
-              <Card className="lg:col-span-3">
-                <CardHeader>
+              <Card className="min-w-0 lg:col-span-3">
+                <CardHeader className="p-4 sm:p-6">
                   <CardTitle>Category Breakdown</CardTitle>
                   <CardDescription>
                     Your spending by category {selectedMonth ? `for ${selectedMonth}` : "this month"}.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <CategoryBreakdown selectedMonth={selectedMonth} />
                 </CardContent>
               </Card>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="lg:col-span-4">
-                <CardHeader>
+              <Card className="min-w-0 lg:col-span-4">
+                <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
                   <CardTitle>Recent Transactions</CardTitle>
                   <CardDescription>Your most recent transactions.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <RecentTransactions />
                 </CardContent>
               </Card>
-              <Card className="lg:col-span-3">
-                <CardHeader>
+              <Card className="min-w-0 lg:col-span-3">
+                <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
                   <CardTitle>Budget Progress</CardTitle>
                   <CardDescription>Your budget progress for this month.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <BudgetProgress />
                 </CardContent>
               </Card>

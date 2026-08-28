@@ -68,7 +68,11 @@ interface CreditOptionType {
   bank_number?: string;
 }
 
-export function AddTransactionDialog() {
+interface AddTransactionDialogProps {
+  triggerClassName?: string
+}
+
+export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogProps = {}) {
   const [open, setOpen] = useState(false)
   const [date, setDate] = useState<Date>(new Date())
   const [title, setTitle] = useState("")
@@ -506,7 +510,7 @@ export function AddTransactionDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="ml-auto hidden md:flex">
+        <Button variant="outline" size="sm" className={cn("ml-auto", triggerClassName ?? "hidden md:flex")}>
           <Plus className="mr-2 h-4 w-4" />
           Add Transaction
         </Button>
