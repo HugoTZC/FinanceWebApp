@@ -15,6 +15,7 @@ import { DashboardCards } from "@/components/dashboard/dashboard-cards"
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
 import { LayoutDashboard, ListFilter, PiggyBank, ReceiptText, Sparkles, WalletCards } from "lucide-react"
 
 const dashboardTabs = new Set(["overview", "transactions", "budget", "savings", "credit", "analysis"])
@@ -65,8 +66,8 @@ export function DashboardPage() {
         </div>
 
         <Tabs defaultValue="overview" value={activeTab} onValueChange={handleTabChange} className="min-w-0 space-y-5">
-          <div className="overflow-x-auto pb-1">
-          <TabsList className="inline-flex h-11 min-w-full justify-start gap-1 rounded-xl border bg-card p-1 shadow-sm md:grid md:grid-cols-6">
+          <div className="hidden overflow-x-auto pb-1 md:block">
+          <TabsList className="grid h-11 min-w-full grid-cols-6 gap-1 rounded-xl border bg-card p-1 shadow-sm">
             <TabsTrigger className="min-w-[120px] gap-2 rounded-lg md:min-w-0" value="overview"><LayoutDashboard className="h-4 w-4" />Resumen</TabsTrigger>
             <TabsTrigger className="min-w-[140px] gap-2 rounded-lg md:min-w-0" value="transactions"><ReceiptText className="h-4 w-4" />Movimientos</TabsTrigger>
             <TabsTrigger className="min-w-[125px] gap-2 rounded-lg md:min-w-0" value="budget"><ListFilter className="h-4 w-4" />Presupuesto</TabsTrigger>
@@ -111,8 +112,13 @@ export function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
               <Card className="min-w-0 border-border/70 shadow-sm lg:col-span-4">
                 <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-                  <CardTitle>Movimientos recientes</CardTitle>
-                  <CardDescription>Actividad más reciente de tus cuentas.</CardDescription>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle>Movimientos recientes</CardTitle>
+                      <CardDescription>Actividad más reciente de tus cuentas.</CardDescription>
+                    </div>
+                    <Button type="button" variant="link" size="sm" onClick={() => handleTabChange("transactions")} className="h-auto shrink-0 px-0">Ver todos</Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <RecentTransactions />
@@ -120,8 +126,13 @@ export function DashboardPage() {
               </Card>
               <Card className="min-w-0 border-border/70 shadow-sm lg:col-span-3">
                 <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-                  <CardTitle>Avance del presupuesto</CardTitle>
-                  <CardDescription>Seguimiento del presupuesto mensual.</CardDescription>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle>Avance del presupuesto</CardTitle>
+                      <CardDescription>Seguimiento del presupuesto mensual.</CardDescription>
+                    </div>
+                    <Button type="button" variant="link" size="sm" onClick={() => handleTabChange("budget")} className="h-auto shrink-0 px-0">Ver todos</Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <BudgetProgress />

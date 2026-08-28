@@ -196,10 +196,10 @@ export function ProfileForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit} className="min-w-0 space-y-6 sm:space-y-8">
       <div className="space-y-2">
         <Label>Foto de Perfil</Label>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
           <AvatarUpload 
             initialAvatarUrl={avatarUrl} 
             userName={`${name} ${lastName1}`.trim()} 
@@ -254,11 +254,11 @@ export function ProfileForm() {
         <h4 className="text-sm font-medium mb-2">Contraseña</h4>
         <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" type="button">
+            <Button variant="outline" type="button" className="w-full sm:w-auto">
               Cambiar Contraseña
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90dvh] w-[calc(100%_-_2rem)] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Cambiar Contraseña</DialogTitle>
               <DialogDescription>
@@ -297,7 +297,7 @@ export function ProfileForm() {
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
                 Cancelar
               </Button>
@@ -309,7 +309,7 @@ export function ProfileForm() {
         </Dialog>
       </div>
 
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
         {isSubmitting ? "Actualizando..." : "Actualizar perfil"}
       </Button>
     </form>

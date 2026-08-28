@@ -36,7 +36,7 @@ export function SidebarNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1">
+    <nav className="flex min-w-max space-x-2 lg:min-w-0 lg:flex-col lg:space-x-0 lg:space-y-1">
       {items.map((item) => (
         <Link
           key={item.href}
@@ -44,7 +44,7 @@ export function SidebarNav() {
           className={cn(
             buttonVariants({ variant: "ghost" }),
             pathname === item.href ? "bg-muted hover:bg-muted" : "hover:bg-transparent hover:underline",
-            "justify-start",
+            "shrink-0 justify-start",
           )}
         >
           {item.title}

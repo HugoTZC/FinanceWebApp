@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { dashboardAPI } from "@/lib/api"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 // Sample data as fallback
 const sampleData = [
@@ -43,6 +44,7 @@ interface OverviewProps {
 }
 
 export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
+  const isMobile = useIsMobile()
   const [apiData, setApiData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -77,7 +79,7 @@ export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
 
   // Function to handle bar click
   const handleBarClick = (data: any) => {
-    if (onMonthSelect) {
+    if (!isMobile && onMonthSelect) {
       onMonthSelect(data.name)
     }
   }
@@ -98,10 +100,10 @@ export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
           Showing data for: <span className="font-bold text-foreground">{selectedMonth}</span>
         </div>
       )}
-      <ResponsiveContainer width="100%" height={350}>
-        <BarChart data={chartData}>
+      <ResponsiveContainer width="100%" height={isMobile ? 280 : 350}>
+        <BarChart data={chartData} accessibilityLayer={!isMobile}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+          <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => String(value).slice(0, 3)} />
           <YAxis
             stroke="#888888"
             fontSize={12}
@@ -124,8 +126,8 @@ export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
             name="Income"
             fill="#4ade80"
             radius={[4, 4, 0, 0]}
-            onClick={handleBarClick}
-            cursor="pointer"
+            onClick={isMobile ? undefined : handleBarClick}
+            cursor={isMobile ? "default" : "pointer"}
             className={selectedMonth ? "opacity-80 hover:opacity-100" : ""}
           />
           <Bar
@@ -133,8 +135,8 @@ export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
             name="Expenses"
             fill="#f87171"
             radius={[4, 4, 0, 0]}
-            onClick={handleBarClick}
-            cursor="pointer"
+            onClick={isMobile ? undefined : handleBarClick}
+            cursor={isMobile ? "default" : "pointer"}
             className={selectedMonth ? "opacity-80 hover:opacity-100" : ""}
           />
         </BarChart>
