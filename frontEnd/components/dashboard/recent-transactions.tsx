@@ -432,8 +432,41 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
         </div>
       )}
 
-      <div className="rounded-md border">
-        <Table>
+      <div className="space-y-2 md:hidden">
+        {displayTransactions.length > 0 ? (
+          displayTransactions.map((transaction) => (
+            <button
+              type="button"
+              key={transaction.id}
+              onClick={() => handleTransactionClick(transaction.id)}
+              className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex min-w-0 items-center gap-2 font-medium">
+                <span className="shrink-0">{transaction.icon}</span>
+                <span className="truncate">{transaction.description}</span>
+              </span>
+              <span
+                className={`whitespace-nowrap text-right font-semibold ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}
+              >
+                {transaction.type === "income" ? "+" : "-"}${transaction.amount.toFixed(2)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {new Date(transaction.date).toLocaleDateString("es-MX")}
+              </span>
+              <Badge variant="outline" className="max-w-[10rem] justify-self-end truncate">
+                {transaction.category}
+              </Badge>
+            </button>
+          ))
+        ) : (
+          <div className="rounded-lg border px-4 py-8 text-center text-sm text-muted-foreground">
+            No transactions found.
+          </div>
+        )}
+      </div>
+
+      <div className="hidden rounded-md border md:block">
+        <Table className="min-w-[620px]">
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>

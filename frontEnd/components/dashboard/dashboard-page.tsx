@@ -45,11 +45,11 @@ export function DashboardPage() {
       <DashboardHeader />
       <main className="min-w-0 flex-1 space-y-4 overflow-x-hidden p-3 sm:p-4 md:space-y-6 md:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0 space-y-1">
+          <div className="hidden min-w-0 space-y-1 sm:block">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
             <p className="text-sm text-muted-foreground sm:text-base">Welcome back! Here's an overview of your finances.</p>
           </div>
-          <AddTransactionDialog triggerClassName="w-full justify-center sm:w-auto md:hidden" />
+          <AddTransactionDialog triggerClassName="h-12 w-full justify-center border-amber-400 bg-amber-400 text-base font-semibold text-amber-950 shadow-sm hover:border-amber-300 hover:bg-amber-300 sm:w-auto md:hidden" />
         </div>
 
         <Tabs defaultValue="overview" value={activeTab} onValueChange={handleTabChange} className="min-w-0 space-y-4">
@@ -67,8 +67,8 @@ export function DashboardPage() {
             <DashboardCards />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="lg:col-span-4">
-                <CardHeader>
+              <Card className="min-w-0 lg:col-span-4">
+                <CardHeader className="p-4 sm:p-6">
                   <CardTitle>Overview</CardTitle>
                   <CardDescription>
                     Your income and expenses for the past 6 months.
@@ -77,39 +77,39 @@ export function DashboardPage() {
                     )}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="pl-2">
+                <CardContent className="px-2 pb-4 sm:pb-6 sm:pl-2 sm:pr-6">
                   <Overview onMonthSelect={handleMonthSelect} selectedMonth={selectedMonth} />
                 </CardContent>
               </Card>
-              <Card className="lg:col-span-3">
-                <CardHeader>
+              <Card className="min-w-0 lg:col-span-3">
+                <CardHeader className="p-4 sm:p-6">
                   <CardTitle>Category Breakdown</CardTitle>
                   <CardDescription>
                     Your spending by category {selectedMonth ? `for ${selectedMonth}` : "this month"}.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <CategoryBreakdown selectedMonth={selectedMonth} />
                 </CardContent>
               </Card>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="lg:col-span-4">
-                <CardHeader>
+              <Card className="min-w-0 lg:col-span-4">
+                <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
                   <CardTitle>Recent Transactions</CardTitle>
                   <CardDescription>Your most recent transactions.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <RecentTransactions />
                 </CardContent>
               </Card>
-              <Card className="lg:col-span-3">
-                <CardHeader>
+              <Card className="min-w-0 lg:col-span-3">
+                <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
                   <CardTitle>Budget Progress</CardTitle>
                   <CardDescription>Your budget progress for this month.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <BudgetProgress />
                 </CardContent>
               </Card>
