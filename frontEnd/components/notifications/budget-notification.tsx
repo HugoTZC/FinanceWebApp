@@ -46,7 +46,7 @@ export function BudgetAlert({ onDismiss }: BudgetAlertProps) {
   }
 
   return (
-    <Alert variant="warning" className="mb-4">
+    <Alert variant="default" className="mb-4 border-amber-500 text-amber-900 dark:text-amber-200">
       <AlertCircle className="h-4 w-4" />
       <AlertTitle>Budget Alert</AlertTitle>
       <AlertDescription className="flex flex-col gap-2">
