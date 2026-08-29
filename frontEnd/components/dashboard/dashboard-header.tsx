@@ -106,12 +106,12 @@ export function DashboardHeader() {
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="mr-2 md:hidden">
+            <Button variant="outline" className="mr-2 h-9 gap-2 border-amber-400 bg-amber-50 px-3 text-amber-950 shadow-sm hover:bg-amber-100 md:hidden dark:bg-amber-950/30 dark:text-amber-200">
               <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle Menu</span>
+              <span className="text-sm font-semibold">Menú</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="pr-0">
+          <SheetContent side="left" className="w-[85vw] max-w-sm p-0">
             <MobileNav onNavClick={() => setOpen(false)} />
           </SheetContent>
         </Sheet>

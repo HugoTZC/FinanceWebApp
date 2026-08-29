@@ -19,10 +19,19 @@ import { Button } from "@/components/ui/button"
 import { LayoutDashboard, ListFilter, PiggyBank, ReceiptText, Sparkles, WalletCards } from "lucide-react"
 
 const dashboardTabs = new Set(["overview", "transactions", "budget", "savings", "credit", "analysis"])
+const dashboardSectionCopy: Record<string, { label: string; title: string; description: string }> = {
+  overview: { label: "Resumen", title: "Tus finanzas, en claro", description: "Consulta movimientos, presupuestos y crédito desde un solo lugar." },
+  transactions: { label: "Movimientos", title: "Todos tus movimientos", description: "Busca, filtra y consulta el historial completo de tus transacciones." },
+  budget: { label: "Presupuesto", title: "Controla tu presupuesto", description: "Revisa límites, consumo y disponibilidad por categoría." },
+  savings: { label: "Ahorros", title: "Metas y pagos recurrentes", description: "Da seguimiento a tus objetivos de ahorro y próximos compromisos." },
+  credit: { label: "Crédito", title: "Administra tu crédito", description: "Consulta tarjetas, saldos, compras y fechas importantes." },
+  analysis: { label: "Análisis", title: "Entiende tus finanzas", description: "Descubre patrones y tendencias para tomar mejores decisiones." },
+}
 
 export function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedMonth, setSelectedMonth] = useState<string | undefined>(undefined)
+  const currentSection = dashboardSectionCopy[activeTab]
 
   const handleMonthSelect = (month: string) => {
     setSelectedMonth(month === selectedMonth ? undefined : month)
@@ -54,11 +63,11 @@ export function DashboardPage() {
           <div className="min-w-0 space-y-2">
             <Badge variant="secondary" className="gap-1.5 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <Sparkles className="h-3.5 w-3.5" />
-              Resumen financiero
+              Sección · {currentSection.label}
             </Badge>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Tus finanzas, en claro</h1>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground sm:text-base">Consulta movimientos, presupuestos y crédito desde un solo lugar.</p>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{currentSection.title}</h1>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground sm:text-base">{currentSection.description}</p>
             </div>
           </div>
           <AddTransactionDialog triggerClassName="h-11 w-full shrink-0 justify-center border-amber-400 bg-amber-400 px-5 text-sm font-semibold text-amber-950 shadow-sm hover:border-amber-300 hover:bg-amber-300 sm:w-auto" />
