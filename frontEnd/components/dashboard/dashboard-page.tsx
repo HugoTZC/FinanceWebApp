@@ -55,7 +55,7 @@ export function DashboardPage() {
 
   return (
     <>
-      <DashboardHeader />
+      <DashboardHeader onSectionSelect={handleTabChange} />
       <main className="min-w-0 flex-1 overflow-x-hidden bg-muted/30">
         <div className="mx-auto max-w-[1600px] space-y-5 p-3 sm:p-5 lg:p-8">
         <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-6">

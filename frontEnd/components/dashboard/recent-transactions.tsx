@@ -13,6 +13,7 @@ import { transactionsAPI, categoriesAPI } from "@/lib/api"
 import { TransactionDetailsDialog } from "@/components/transactions/transaction-details-dialog"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface Transaction {
   id: string
@@ -82,6 +83,7 @@ function TransactionFilterControls({ className, searchTerm, setSearchTerm, categ
 }
 
 export function RecentTransactions({ showAll = false }: RecentTransactionsProps) {
+  const isMobile = useIsMobile()
   // Controlar estado de hidratación
   const [isMounted, setIsMounted] = useState(false)
   
@@ -378,7 +380,7 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
   return (
     <div className="space-y-4">
       {showAll && (
-        <>
+        isMounted ? (isMobile ? (
           <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" className="w-full justify-between md:hidden">
@@ -395,8 +397,9 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
               <SheetFooter><Button className="w-full" onClick={() => setMobileFiltersOpen(false)}>Ver resultados</Button></SheetFooter>
             </SheetContent>
           </Sheet>
-          <TransactionFilterControls {...filterControlProps} className="hidden md:flex" />
-        </>
+        ) : (
+          <TransactionFilterControls {...filterControlProps} />
+        )) : null
       )}
 
       {error && (

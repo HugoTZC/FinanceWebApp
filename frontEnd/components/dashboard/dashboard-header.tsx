@@ -23,7 +23,9 @@ import { authAPI } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useUser } from "@/lib/user-context"
 
-export function DashboardHeader() {
+interface DashboardHeaderProps { onSectionSelect?: (section: string) => void }
+
+export function DashboardHeader({ onSectionSelect }: DashboardHeaderProps = {}) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
@@ -112,7 +114,7 @@ export function DashboardHeader() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[85vw] max-w-sm p-0">
-            <MobileNav onNavClick={() => setOpen(false)} />
+            <MobileNav onNavClick={() => setOpen(false)} onSectionSelect={onSectionSelect} />
           </SheetContent>
         </Sheet>
         <Link href="/" className="mr-6 flex items-center space-x-2 md:hidden">
