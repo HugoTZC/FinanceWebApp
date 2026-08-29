@@ -16,7 +16,8 @@ import { AddTransactionDialog } from "@/components/transactions/add-transaction-
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, ListFilter, PiggyBank, ReceiptText, Sparkles, WalletCards } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Info, LayoutDashboard, ListFilter, PiggyBank, ReceiptText, Sparkles, WalletCards } from "lucide-react"
 
 const dashboardTabs = new Set(["overview", "transactions", "budget", "savings", "credit", "analysis"])
 const dashboardSectionCopy: Record<string, { label: string; title: string; description: string }> = {
@@ -66,8 +67,27 @@ export function DashboardPage() {
               Sección · {currentSection.label}
             </Badge>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{currentSection.title}</h1>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground sm:text-base">{currentSection.description}</p>
+              <div className="flex items-center gap-2">
+                <h1 className="min-w-0 text-2xl font-bold tracking-tight sm:text-3xl">{currentSection.title}</h1>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 rounded-full text-muted-foreground md:hidden"
+                      aria-label={`Información sobre ${currentSection.label}`}
+                    >
+                      <Info className="h-5 w-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-[min(18rem,calc(100vw-2rem))] text-sm leading-relaxed md:hidden">
+                    <p className="font-medium text-foreground">{currentSection.title}</p>
+                    <p className="mt-1 text-muted-foreground">{currentSection.description}</p>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <p className="mt-1 hidden max-w-2xl text-sm text-muted-foreground md:block md:text-base">{currentSection.description}</p>
             </div>
           </div>
           <AddTransactionDialog triggerClassName="h-11 w-full shrink-0 justify-center border-amber-400 bg-amber-400 px-5 text-sm font-semibold text-amber-950 shadow-sm hover:border-amber-300 hover:bg-amber-300 sm:w-auto" />
