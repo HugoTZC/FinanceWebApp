@@ -13,12 +13,26 @@ import { AnalysisTab } from "@/components/dashboard/analysis-tab"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardCards } from "@/components/dashboard/dashboard-cards"
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Info, LayoutDashboard, ListFilter, PiggyBank, ReceiptText, Sparkles, WalletCards } from "lucide-react"
 
 const dashboardTabs = new Set(["overview", "transactions", "budget", "savings", "credit", "analysis"])
+const dashboardSectionCopy: Record<string, { label: string; title: string; description: string }> = {
+  overview: { label: "Resumen", title: "Tus finanzas, en claro", description: "Consulta movimientos, presupuestos y crédito desde un solo lugar." },
+  transactions: { label: "Movimientos", title: "Todos tus movimientos", description: "Busca, filtra y consulta el historial completo de tus transacciones." },
+  budget: { label: "Presupuesto", title: "Controla tu presupuesto", description: "Revisa límites, consumo y disponibilidad por categoría." },
+  savings: { label: "Ahorros", title: "Metas y pagos recurrentes", description: "Da seguimiento a tus objetivos de ahorro y próximos compromisos." },
+  credit: { label: "Crédito", title: "Administra tu crédito", description: "Consulta tarjetas, saldos, compras y fechas importantes." },
+  analysis: { label: "Análisis", title: "Entiende tus finanzas", description: "Descubre patrones y tendencias para tomar mejores decisiones." },
+}
 
 export function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedMonth, setSelectedMonth] = useState<string | undefined>(undefined)
+  const currentSection = dashboardSectionCopy[activeTab]
 
   const handleMonthSelect = (month: string) => {
     setSelectedMonth(month === selectedMonth ? undefined : month)
@@ -42,38 +56,68 @@ export function DashboardPage() {
 
   return (
     <>
-      <DashboardHeader />
-      <main className="min-w-0 flex-1 space-y-4 overflow-x-hidden p-3 sm:p-4 md:space-y-6 md:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="hidden min-w-0 space-y-1 sm:block">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
-            <p className="text-sm text-muted-foreground sm:text-base">Welcome back! Here's an overview of your finances.</p>
+      <DashboardHeader onSectionSelect={handleTabChange} />
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-muted/30">
+        <div className="mx-auto max-w-[1600px] space-y-5 p-3 sm:p-5 lg:p-8">
+        <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-2">
+            <Badge variant="secondary" className="gap-1.5 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              <Sparkles className="h-3.5 w-3.5" />
+              Sección · {currentSection.label}
+            </Badge>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="min-w-0 text-2xl font-bold tracking-tight sm:text-3xl">{currentSection.title}</h1>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 rounded-full text-muted-foreground md:hidden"
+                      aria-label={`Información sobre ${currentSection.label}`}
+                    >
+                      <Info className="h-5 w-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-[min(18rem,calc(100vw-2rem))] text-sm leading-relaxed md:hidden">
+                    <p className="font-medium text-foreground">{currentSection.title}</p>
+                    <p className="mt-1 text-muted-foreground">{currentSection.description}</p>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <p className="mt-1 hidden max-w-2xl text-sm text-muted-foreground md:block md:text-base">{currentSection.description}</p>
+            </div>
           </div>
-          <AddTransactionDialog triggerClassName="h-12 w-full justify-center border-amber-400 bg-amber-400 text-base font-semibold text-amber-950 shadow-sm hover:border-amber-300 hover:bg-amber-300 sm:w-auto md:hidden" />
+          <AddTransactionDialog triggerClassName="h-11 w-full shrink-0 justify-center border-amber-400 bg-amber-400 px-5 text-sm font-semibold text-amber-950 shadow-sm hover:border-amber-300 hover:bg-amber-300 sm:w-auto" />
+          </div>
         </div>
 
-        <Tabs defaultValue="overview" value={activeTab} onValueChange={handleTabChange} className="min-w-0 space-y-4">
-          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto p-1 md:grid md:grid-cols-6 md:overflow-visible">
-            <TabsTrigger className="min-w-[96px] flex-none md:min-w-0" value="overview">Overview</TabsTrigger>
-            <TabsTrigger className="min-w-[112px] flex-none md:min-w-0" value="transactions">Transactions</TabsTrigger>
-            <TabsTrigger className="min-w-[96px] flex-none md:min-w-0" value="budget">Budget</TabsTrigger>
-            <TabsTrigger className="min-w-[96px] flex-none md:min-w-0" value="savings">Savings</TabsTrigger>
-            <TabsTrigger className="min-w-[88px] flex-none md:min-w-0" value="credit">Credit</TabsTrigger>
-            <TabsTrigger className="min-w-[96px] flex-none md:min-w-0" value="analysis">Analysis</TabsTrigger>
+        <Tabs defaultValue="overview" value={activeTab} onValueChange={handleTabChange} className="min-w-0 space-y-5">
+          <div className="hidden overflow-x-auto pb-1 md:block">
+          <TabsList className="grid h-11 min-w-full grid-cols-6 gap-1 rounded-xl border bg-card p-1 shadow-sm">
+            <TabsTrigger className="min-w-[120px] gap-2 rounded-lg md:min-w-0" value="overview"><LayoutDashboard className="h-4 w-4" />Resumen</TabsTrigger>
+            <TabsTrigger className="min-w-[140px] gap-2 rounded-lg md:min-w-0" value="transactions"><ReceiptText className="h-4 w-4" />Movimientos</TabsTrigger>
+            <TabsTrigger className="min-w-[125px] gap-2 rounded-lg md:min-w-0" value="budget"><ListFilter className="h-4 w-4" />Presupuesto</TabsTrigger>
+            <TabsTrigger className="min-w-[115px] gap-2 rounded-lg md:min-w-0" value="savings"><PiggyBank className="h-4 w-4" />Ahorros</TabsTrigger>
+            <TabsTrigger className="min-w-[110px] gap-2 rounded-lg md:min-w-0" value="credit"><WalletCards className="h-4 w-4" />Crédito</TabsTrigger>
+            <TabsTrigger className="min-w-[110px] gap-2 rounded-lg md:min-w-0" value="analysis"><Sparkles className="h-4 w-4" />Análisis</TabsTrigger>
           </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-4">
             {/* Dashboard Cards displaying financial data */}
             <DashboardCards />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="min-w-0 lg:col-span-4">
+              <Card className="min-w-0 border-border/70 shadow-sm lg:col-span-4">
                 <CardHeader className="p-4 sm:p-6">
-                  <CardTitle>Overview</CardTitle>
+                  <CardTitle>Flujo de efectivo</CardTitle>
                   <CardDescription>
-                    Your income and expenses for the past 6 months.
+                    Ingresos y gastos de los últimos seis meses.
                     {!selectedMonth && (
-                      <span className="block text-xs mt-1">(Click on a month to see detailed breakdown)</span>
+                      <span className="mt-1 block text-xs">Selecciona un mes para ver su detalle.</span>
                     )}
                   </CardDescription>
                 </CardHeader>
@@ -81,11 +125,11 @@ export function DashboardPage() {
                   <Overview onMonthSelect={handleMonthSelect} selectedMonth={selectedMonth} />
                 </CardContent>
               </Card>
-              <Card className="min-w-0 lg:col-span-3">
+              <Card className="min-w-0 border-border/70 shadow-sm lg:col-span-3">
                 <CardHeader className="p-4 sm:p-6">
-                  <CardTitle>Category Breakdown</CardTitle>
+                  <CardTitle>Gastos por categoría</CardTitle>
                   <CardDescription>
-                    Your spending by category {selectedMonth ? `for ${selectedMonth}` : "this month"}.
+                    Distribución {selectedMonth ? `de ${selectedMonth}` : "del mes actual"}.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
@@ -95,19 +139,29 @@ export function DashboardPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="min-w-0 lg:col-span-4">
+              <Card className="min-w-0 border-border/70 shadow-sm lg:col-span-4">
                 <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-                  <CardTitle>Recent Transactions</CardTitle>
-                  <CardDescription>Your most recent transactions.</CardDescription>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle>Movimientos recientes</CardTitle>
+                      <CardDescription>Actividad más reciente de tus cuentas.</CardDescription>
+                    </div>
+                    <Button type="button" variant="link" size="sm" onClick={() => handleTabChange("transactions")} className="h-auto shrink-0 px-0">Ver todos</Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <RecentTransactions />
                 </CardContent>
               </Card>
-              <Card className="min-w-0 lg:col-span-3">
+              <Card className="min-w-0 border-border/70 shadow-sm lg:col-span-3">
                 <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-                  <CardTitle>Budget Progress</CardTitle>
-                  <CardDescription>Your budget progress for this month.</CardDescription>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle>Avance del presupuesto</CardTitle>
+                      <CardDescription>Seguimiento del presupuesto mensual.</CardDescription>
+                    </div>
+                    <Button type="button" variant="link" size="sm" onClick={() => handleTabChange("budget")} className="h-auto shrink-0 px-0">Ver todos</Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
                   <BudgetProgress />
@@ -168,6 +222,9 @@ export function DashboardPage() {
             <AnalysisTab />
           </TabsContent>
         </Tabs>
+        <Separator className="opacity-60" />
+        <p className="pb-2 text-center text-xs text-muted-foreground">FinApp · Información expresada en pesos mexicanos</p>
+        </div>
       </main>
     </>
   )

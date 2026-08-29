@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, RefreshCcw, ArrowDownIcon, SearchIcon } from "lucide-react"
+import { AlertCircle, RefreshCcw, ArrowDownIcon, SearchIcon, SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,6 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { transactionsAPI, categoriesAPI } from "@/lib/api"
 import { TransactionDetailsDialog } from "@/components/transactions/transaction-details-dialog"
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface Transaction {
   id: string
@@ -26,7 +29,61 @@ interface RecentTransactionsProps {
   showAll?: boolean
 }
 
+interface FilterCategory { id: string; name: string }
+
+interface TransactionFilterControlsProps {
+  className?: string
+  searchTerm: string
+  setSearchTerm: (value: string) => void
+  categoryFilter: string
+  setCategoryFilter: (value: string) => void
+  typeFilter: string
+  setTypeFilter: (value: string) => void
+  yearFilter: string
+  setYearFilter: (value: string) => void
+  monthFilter: string
+  setMonthFilter: (value: string) => void
+  weekFilter: string
+  setWeekFilter: (value: string) => void
+  categories: FilterCategory[]
+  years: string[]
+  onClear: () => void
+}
+
+function TransactionFilterControls({ className, searchTerm, setSearchTerm, categoryFilter, setCategoryFilter, typeFilter, setTypeFilter, yearFilter, setYearFilter, monthFilter, setMonthFilter, weekFilter, setWeekFilter, categories, years, onClear }: TransactionFilterControlsProps) {
+  return (
+    <div className={cn("space-y-3 md:flex md:space-x-2 md:space-y-0", className)}>
+      <div className="relative flex-1">
+        <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input type="search" placeholder="Buscar movimientos..." className="pl-8" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+      </div>
+      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Categoría" /></SelectTrigger>
+        <SelectContent><SelectItem value="all">Todas las categorías</SelectItem>{categories.map((category, index) => <SelectItem key={`category-${category.id}-${index}`} value={category.name.toLowerCase()}>{category.name}</SelectItem>)}</SelectContent>
+      </Select>
+      <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+        <SelectContent><SelectItem value="all">Todos los tipos</SelectItem><SelectItem value="income">Ingreso</SelectItem><SelectItem value="expense">Gasto</SelectItem></SelectContent>
+      </Select>
+      <Select value={yearFilter} onValueChange={setYearFilter}>
+        <SelectTrigger className="w-full md:w-[115px]"><SelectValue placeholder="Año" /></SelectTrigger>
+        <SelectContent><SelectItem value="all">Todos</SelectItem>{years.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent>
+      </Select>
+      <Select value={monthFilter} onValueChange={setMonthFilter}>
+        <SelectTrigger className="w-full md:w-[130px]"><SelectValue placeholder="Mes" /></SelectTrigger>
+        <SelectContent><SelectItem value="all">Todos los meses</SelectItem>{["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map((month, index) => <SelectItem key={month} value={String(index + 1)}>{month}</SelectItem>)}</SelectContent>
+      </Select>
+      <Select value={weekFilter} onValueChange={setWeekFilter}>
+        <SelectTrigger className="w-full md:w-[120px]"><SelectValue placeholder="Semana" /></SelectTrigger>
+        <SelectContent><SelectItem value="all">Todas</SelectItem>{[1, 2, 3, 4, 5].map((week) => <SelectItem key={week} value={String(week)}>Semana {week}</SelectItem>)}</SelectContent>
+      </Select>
+      <Button variant="outline" onClick={onClear} className="w-full md:w-auto">Limpiar</Button>
+    </div>
+  )
+}
+
 export function RecentTransactions({ showAll = false }: RecentTransactionsProps) {
+  const isMobile = useIsMobile()
   // Controlar estado de hidratación
   const [isMounted, setIsMounted] = useState(false)
   
@@ -36,6 +93,7 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
   const [yearFilter, setYearFilter] = useState<string>("all")
   const [monthFilter, setMonthFilter] = useState<string>("all")
   const [weekFilter, setWeekFilter] = useState<string>("all")
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   
   const [apiTransactions, setApiTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -301,111 +359,47 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
     handleRetry()
   }
 
+  const clearFilters = () => {
+    setSearchTerm("")
+    setCategoryFilter("all")
+    setTypeFilter("all")
+    setYearFilter("all")
+    setMonthFilter("all")
+    setWeekFilter("all")
+  }
+
+  const activeFilterCount = [categoryFilter, typeFilter, yearFilter, monthFilter, weekFilter].filter((value) => value !== "all").length + (searchTerm ? 1 : 0)
+
+  const filterControlProps = {
+    searchTerm, setSearchTerm, categoryFilter, setCategoryFilter, typeFilter, setTypeFilter,
+    yearFilter, setYearFilter, monthFilter, setMonthFilter, weekFilter, setWeekFilter,
+    categories: categoriesList, years, onClear: clearFilters,
+  }
+
   // El resto del componente se mantiene igual...
   return (
     <div className="space-y-4">
       {showAll && (
-        <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search transactions..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categoriesList.map((category, index) => (
-                <SelectItem key={`category-${category.id}-${index}`} value={category.name.toLowerCase()}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="income">Income</SelectItem>
-              <SelectItem value="expense">Expense</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* New date filters */}
-          <Select value={yearFilter} onValueChange={setYearFilter}>
-            <SelectTrigger className="w-full md:w-[120px]">
-              <SelectValue placeholder="Year" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Years</SelectItem>
-              {years.map((year) => (
-                <SelectItem key={year} value={year}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={monthFilter} onValueChange={setMonthFilter}>
-            <SelectTrigger className="w-full md:w-[120px]">
-              <SelectValue placeholder="Month" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Months</SelectItem>
-              <SelectItem value="1">January</SelectItem>
-              <SelectItem value="2">February</SelectItem>
-              <SelectItem value="3">March</SelectItem>
-              <SelectItem value="4">April</SelectItem>
-              <SelectItem value="5">May</SelectItem>
-              <SelectItem value="6">June</SelectItem>
-              <SelectItem value="7">July</SelectItem>
-              <SelectItem value="8">August</SelectItem>
-              <SelectItem value="9">September</SelectItem>
-              <SelectItem value="10">October</SelectItem>
-              <SelectItem value="11">November</SelectItem>
-              <SelectItem value="12">December</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={weekFilter} onValueChange={setWeekFilter}>
-            <SelectTrigger className="w-full md:w-[120px]">
-              <SelectValue placeholder="Week" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Weeks</SelectItem>
-              <SelectItem value="1">Week 1</SelectItem>
-              <SelectItem value="2">Week 2</SelectItem>
-              <SelectItem value="3">Week 3</SelectItem>
-              <SelectItem value="4">Week 4</SelectItem>
-              <SelectItem value="5">Week 5</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearchTerm("")
-              setCategoryFilter("all")
-              setTypeFilter("all")
-              setYearFilter("all")
-              setMonthFilter("all")
-              setWeekFilter("all")
-            }}
-            className="w-full md:w-auto"
-          >
-            Clear Filters
-          </Button>
-        </div>
+        isMounted ? (isMobile ? (
+          <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="w-full justify-between md:hidden">
+                <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4" />Filtros</span>
+                {activeFilterCount > 0 ? <Badge className="rounded-full px-2">{activeFilterCount}</Badge> : null}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="max-h-[88dvh] rounded-t-2xl">
+              <SheetHeader className="text-left">
+                <SheetTitle>Filtrar movimientos</SheetTitle>
+                <SheetDescription>Reduce la lista por texto, categoría, tipo o periodo.</SheetDescription>
+              </SheetHeader>
+              <div className="max-h-[62dvh] overflow-y-auto py-5"><TransactionFilterControls {...filterControlProps} /></div>
+              <SheetFooter><Button className="w-full" onClick={() => setMobileFiltersOpen(false)}>Ver resultados</Button></SheetFooter>
+            </SheetContent>
+          </Sheet>
+        ) : (
+          <TransactionFilterControls {...filterControlProps} />
+        )) : null
       )}
 
       {error && (

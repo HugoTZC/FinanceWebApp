@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 import { dashboardAPI } from "@/lib/api"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 // Sample data for each month - used as fallback
 const monthlyData = {
@@ -71,6 +72,7 @@ interface CategoryBreakdownProps {
 }
 
 export function CategoryBreakdown({ selectedMonth }: CategoryBreakdownProps) {
+  const isMobile = useIsMobile()
   const [apiData, setApiData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -158,7 +160,7 @@ export function CategoryBreakdown({ selectedMonth }: CategoryBreakdownProps) {
             outerRadius={80}
             paddingAngle={2}
             dataKey="value"
-            label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+            label={isMobile ? false : ({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
             labelLine={false}
           >
             {data.map((entry, index) => (
@@ -174,7 +176,7 @@ export function CategoryBreakdown({ selectedMonth }: CategoryBreakdownProps) {
               border: "1px solid #e2e8f0",
             }}
           />
-          <Legend />
+          <Legend iconSize={10} wrapperStyle={{ fontSize: isMobile ? 11 : 12 }} />
         </PieChart>
       </ResponsiveContainer>
     </div>

@@ -1,5 +1,6 @@
 const transactionModel = require('../models/transactionModel');
 const categoryModel = require('../models/categoryModel');
+const creditModel = require('../models/creditModel');
 const { AppError } = require('../utils/helpers');
 
 /**
@@ -49,15 +50,18 @@ exports.createTransaction = async (req, res, next) => {
     } = req.body;
 
     try {
-      console.log(`🔍 [createTransaction] Looking up category by ID: "${category}"`);
+      const normalizedPaymentMethod = payment_method?.replace('-', '_') || 'cash';
+      const isCreditCardPayment = type === 'expense' && normalizedPaymentMethod === 'credit_card_payment';
+
+      console.log(`🔍 [createTransaction] Looking up category by ID: "${category || 'none'}"`);
       
       // Buscar la categoría directamente por su ID
       // Primero intentamos buscar en las categorías predeterminadas
       let categorySource = 'default'; // Track which table the category came from
-      let matchingCategory = await categoryModel.findById(category);
+      let matchingCategory = category ? await categoryModel.findById(category) : null;
       
       // Si no se encuentra en las categorías predeterminadas, podría ser una categoría personalizada
-      if (!matchingCategory) {
+      if (category && !matchingCategory) {
         console.log(`🔍 [createTransaction] Category not found in default categories, checking user categories`);
         categorySource = 'user';
         matchingCategory = await categoryModel.findUserCategoryById(category, userId);
@@ -65,12 +69,16 @@ exports.createTransaction = async (req, res, next) => {
       
       console.log(`🔍 [createTransaction] DEBUG: Category source = "${categorySource}", found = ${matchingCategory ? 'yes' : 'no'}`);
       
-      if (!matchingCategory) {
+      if (!matchingCategory && !isCreditCardPayment) {
         console.warn(`⚠️ [createTransaction] Invalid category ID requested: "${category}"`);
         return next(new AppError('Invalid category ID', 400));
       }
       
-      console.log(`✓ [createTransaction] Matched category: ${matchingCategory.name} (ID: ${matchingCategory.id}) from ${categorySource} categories`);
+      if (matchingCategory) {
+        console.log(`✓ [createTransaction] Matched category: ${matchingCategory.name} (ID: ${matchingCategory.id}) from ${categorySource} categories`);
+      } else {
+        console.log('✓ [createTransaction] Credit card payment does not require a category');
+      }
       
       // Configuración de método de pago y cuentas según el tipo de transacción
       // y considerando la restricción de verificación de la base de datos
@@ -78,22 +86,33 @@ exports.createTransaction = async (req, res, next) => {
       let actualCategoryId = null, actualUserCategoryId = null;
       
       // Set the appropriate category field based on source
-      if (categorySource === 'default') {
+      if (matchingCategory && categorySource === 'default') {
         actualCategoryId = matchingCategory.id;
         console.log(`🔍 [createTransaction] DEBUG: Using category_id=${actualCategoryId} for default category`);
-      } else {
+      } else if (matchingCategory) {
         actualUserCategoryId = matchingCategory.id;
         console.log(`🔍 [createTransaction] DEBUG: Using user_category_id=${actualUserCategoryId} for user category`);
       }
       
-      if (type === 'income') {
-        // Para ingresos, usamos 'cash' ya que es compatible con la restricción
-        // (ambos bank_account_id y credit_card_id deben ser NULL)
+      if (isCreditCardPayment) {
+        if (!credit_card_id) {
+          return next(new AppError('Credit card ID is required for a credit card payment', 400));
+        }
+        const card = await creditModel.getCreditCardById(credit_card_id, userId);
+        if (!card) {
+          return next(new AppError('Credit card not found', 404));
+        }
+        if (Number(amount) > Number(card.balance)) {
+          return next(new AppError('Payment cannot exceed the current credit card balance', 400));
+        }
+        actualPaymentMethod = 'credit_card_payment';
+        actualCreditCardId = credit_card_id;
+      } else if (type === 'income') {
         actualPaymentMethod = 'cash';
       } else {
         // Para gastos, usamos el método de pago proporcionado o 'cash' por defecto
         // Normalizando el nombre del método de pago
-        actualPaymentMethod = payment_method?.replace('-', '_') || 'cash';
+        actualPaymentMethod = normalizedPaymentMethod;
         
         // Asignamos bank_account_id y credit_card_id según el método de pago
         // respetando la restricción de verificación
@@ -107,6 +126,10 @@ exports.createTransaction = async (req, res, next) => {
           // Si es pago con tarjeta de crédito, debemos tener un credit_card_id
           if (!credit_card_id) {
             return next(new AppError('Credit card ID is required when payment method is credit_card', 400));
+          }
+          const card = await creditModel.getCreditCardById(credit_card_id, userId);
+          if (!card) {
+            return next(new AppError('Credit card not found', 404));
           }
           actualCreditCardId = credit_card_id;
         }
