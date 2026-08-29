@@ -360,7 +360,7 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
       const transaction = {
         title: resolvedTitle,
         amount: Number.parseFloat(amount),
-        type: isCreditPayment ? "income" : type,
+        type: isCreditPayment ? "expense" : type,
         category: isCreditPayment ? null : category,
         transaction_date: date.toISOString(),
         comment,

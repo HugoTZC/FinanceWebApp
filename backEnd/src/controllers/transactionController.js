@@ -1,5 +1,6 @@
 const transactionModel = require('../models/transactionModel');
 const categoryModel = require('../models/categoryModel');
+const creditModel = require('../models/creditModel');
 const { AppError } = require('../utils/helpers');
 
 /**
@@ -50,7 +51,7 @@ exports.createTransaction = async (req, res, next) => {
 
     try {
       const normalizedPaymentMethod = payment_method?.replace('-', '_') || 'cash';
-      const isCreditCardPayment = type === 'income' && normalizedPaymentMethod === 'credit_card_payment';
+      const isCreditCardPayment = type === 'expense' && normalizedPaymentMethod === 'credit_card_payment';
 
       console.log(`🔍 [createTransaction] Looking up category by ID: "${category || 'none'}"`);
       
@@ -97,6 +98,13 @@ exports.createTransaction = async (req, res, next) => {
         if (!credit_card_id) {
           return next(new AppError('Credit card ID is required for a credit card payment', 400));
         }
+        const card = await creditModel.getCreditCardById(credit_card_id, userId);
+        if (!card) {
+          return next(new AppError('Credit card not found', 404));
+        }
+        if (Number(amount) > Number(card.balance)) {
+          return next(new AppError('Payment cannot exceed the current credit card balance', 400));
+        }
         actualPaymentMethod = 'credit_card_payment';
         actualCreditCardId = credit_card_id;
       } else if (type === 'income') {
@@ -118,6 +126,10 @@ exports.createTransaction = async (req, res, next) => {
           // Si es pago con tarjeta de crédito, debemos tener un credit_card_id
           if (!credit_card_id) {
             return next(new AppError('Credit card ID is required when payment method is credit_card', 400));
+          }
+          const card = await creditModel.getCreditCardById(credit_card_id, userId);
+          if (!card) {
+            return next(new AppError('Credit card not found', 404));
           }
           actualCreditCardId = credit_card_id;
         }

@@ -609,20 +609,23 @@ async function updateRelatedBalances(transaction, client) {
 
     // Update credit card balance if transaction uses a credit card
     if (transaction.credit_card_id) {
-      if (transaction.type === 'expense') {
+      if (transaction.type === 'expense' && transaction.payment_method === 'credit_card_payment') {
+        // A payment reduces the liability; it is not income or available cash.
+        const paymentResult = await client.query(
+          'UPDATE public.credit_cards SET balance = balance - $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 AND balance >= $1',
+          [transaction.amount, transaction.credit_card_id, transaction.user_id]
+        );
+        if (paymentResult.rowCount !== 1) {
+          throw new Error('Credit card payment could not be applied');
+        }
+        console.log(`Updated credit card ${transaction.credit_card_id} balance: -${transaction.amount}`);
+      } else if (transaction.type === 'expense') {
         // Increase credit card balance (debt) for expenses
         await client.query(
-          'UPDATE public.credit_cards SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
-          [transaction.amount, transaction.credit_card_id]
+          'UPDATE public.credit_cards SET balance = balance + $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
+          [transaction.amount, transaction.credit_card_id, transaction.user_id]
         );
         console.log(`Updated credit card ${transaction.credit_card_id} balance: +${transaction.amount}`);
-      } else if (transaction.type === 'income' && transaction.payment_method === 'credit_card_payment') {
-        // Decrease credit card balance (payment) for credit card payments
-        await client.query(
-          'UPDATE public.credit_cards SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
-          [transaction.amount, transaction.credit_card_id]
-        );
-        console.log(`Updated credit card ${transaction.credit_card_id} balance: -${transaction.amount}`);
       }
     }
 
