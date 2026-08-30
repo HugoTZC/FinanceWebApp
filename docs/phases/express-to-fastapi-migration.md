@@ -12,6 +12,14 @@ Trasladar todas las capacidades de `backEnd/` a `pythonApi/`, conservar los cont
 - La rama `review/security-production-python-mvp` contiene una base reutilizable con 23 endpoints para cuentas, categorías, tarjetas y lecturas de transacciones, además de autenticación compatible con el JWT actual y pruebas de pertenencia por usuario.
 - Express sigue siendo responsable de autenticación, perfiles, transacciones completas, presupuestos, préstamos, ahorros, pagos recurrentes, notificaciones, dashboard y análisis.
 
+## Avance actual
+
+- La autenticación de FastAPI ya está implementada y probada en la rama de trabajo: registro, login, logout con revocación, refresh con rotación, usuario actual, cambio de contraseña y tokens de restablecimiento.
+- Conserva compatibilidad temporal con los JWT emitidos por Express.
+- Incluye una migración aditiva para marcas de contraseña y sesiones renovables revocables.
+- La migración aún no se aplica a la base remota y el código no se despliega hasta rotar las claves históricas.
+- La entrega por correo del enlace de recuperación requiere seleccionar y configurar un proveedor transaccional; el token nunca se devuelve ni se registra.
+
 La rama avanzada debe tratarse como fuente de cambios seleccionados. No debe fusionarse completa porque quedó atrás de `main` y mezcla API, interfaz, documentación, CI y una versión anterior de la migración RLS.
 
 ## Principios de migración

@@ -5,6 +5,9 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from auth_api import router as auth_router
+from supabase_client import SupabaseConfigurationError, SupabaseRequestError
+
 
 PUBLIC_PREFIX = "/api/v2"
 IVA = 0.16
@@ -70,6 +73,31 @@ app = FastAPI(
     version="0.1.0",
 )
 app.add_middleware(ServicePrefixMiddleware, prefix=PUBLIC_PREFIX)
+app.include_router(auth_router)
+
+
+@app.exception_handler(SupabaseConfigurationError)
+async def handle_supabase_configuration_error(
+    _request: Any, _error: SupabaseConfigurationError
+) -> Any:
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=503,
+        content={"status": "error", "message": "Data service is not configured"},
+    )
+
+
+@app.exception_handler(SupabaseRequestError)
+async def handle_supabase_request_error(
+    _request: Any, _error: SupabaseRequestError
+) -> Any:
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=502,
+        content={"status": "error", "message": "Data service request failed"},
+    )
 
 
 @app.get("/")
