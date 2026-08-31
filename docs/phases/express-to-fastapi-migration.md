@@ -68,8 +68,8 @@ La rama avanzada debe tratarse como fuente de cambios seleccionados. No debe fus
 
 **Rutas a migrar**
 
-- Cuentas: CRUD e historial.
-- Categorías: predeterminadas, combinadas y CRUD de categorías del usuario.
+- Cuentas: CRUD e historial. Implementado y cubierto por pruebas en FastAPI.
+- Categorías: predeterminadas, combinadas y CRUD de categorías del usuario. Implementado y cubierto por pruebas en FastAPI.
 - Tarjetas: CRUD, gasto total, gasto por categoría y gasto mensual.
 - Transacciones: listado, detalle, años, resumen mensual, categorías, movimientos por tarjeta y CRUD completo.
 - Préstamos: CRUD.
