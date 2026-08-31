@@ -390,6 +390,14 @@ export const userAPI = {
   }
 }
 
+export const notificationAPI = {
+  getAll: (params?: { page?: number; limit?: number; unread_only?: boolean; type?: string }) => api.get("/notifications", { params }),
+  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.patch("/notifications/read-all"),
+  delete: (id: string) => api.delete(`/notifications/${id}`),
+  clearAllRead: () => api.delete("/notifications/clear-all"),
+}
+
 // Dashboard API
 export const dashboardAPI = {
   getOverview: () => {

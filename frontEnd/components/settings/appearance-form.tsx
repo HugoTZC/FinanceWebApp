@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { useTheme } from "@/components/theme-provider"
 import { Label } from "@/components/ui/label"
+import { userAPI } from "@/lib/api"
 
 export function AppearanceForm() {
   const { toast } = useToast()
@@ -27,11 +28,12 @@ export function AppearanceForm() {
     (theme as "light" | "dark" | "system") || "system",
   )
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     // Apply the theme
     setTheme(selectedTheme)
+    await userAPI.updateSettings({ theme: selectedTheme })
 
     // Show success dialog
     setShowSuccessDialog(true)

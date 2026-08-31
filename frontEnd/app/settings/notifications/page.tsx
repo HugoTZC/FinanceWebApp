@@ -1,5 +1,6 @@
 import { Separator } from "@/components/ui/separator"
 import { NotificationsHistory } from "@/components/settings/notifications-history"
+import { BrowserNotificationPermission } from "@/components/settings/browser-notification-permission"
 
 export default function SettingsNotificationsPage() {
   return (
@@ -11,6 +12,7 @@ export default function SettingsNotificationsPage() {
         </p>
       </div>
       <Separator />
+      <BrowserNotificationPermission />
       <NotificationsHistory />
     </div>
   )

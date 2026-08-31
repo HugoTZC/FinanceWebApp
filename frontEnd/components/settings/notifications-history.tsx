@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,13 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { notificationAPI, userAPI } from "@/lib/api"
+
+type PreferenceKey = "budget_email" | "payment_email" | "savings_email" | "credit_email" | "budget_push" | "payment_push" | "savings_push" | "credit_push"
+const defaultPreferences: Record<PreferenceKey, boolean> = {
+  budget_email: true, payment_email: true, savings_email: true, credit_email: true,
+  budget_push: true, payment_push: true, savings_push: true, credit_push: true,
+}
 
 // Sample notifications data - in a real app, this would come from your API
 const allNotifications = [
@@ -122,18 +129,36 @@ export function NotificationsHistory() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("all")
   const [notifications, setNotifications] = useState(combinedNotifications)
+  const [preferences, setPreferences] = useState(defaultPreferences)
 
-  // For API integration
-  // const [isLoading, setIsLoading] = useState(false)
+  useEffect(() => {
+    userAPI.getNotificationPreferences().then((response) => {
+      setPreferences((current) => ({ ...current, ...response.data.data.preferences }))
+    }).catch(() => {
+      toast({ title: "Preferences unavailable", description: "Your saved notification preferences could not be loaded.", variant: "destructive" })
+    })
+  }, [toast])
 
-  // Fetch notifications from API
-  /*
+  const updatePreference = async (key: PreferenceKey, enabled: boolean) => {
+    const previous = preferences[key]
+    setPreferences((current) => ({ ...current, [key]: enabled }))
+    try {
+      await userAPI.updateNotificationPreferences({ [key]: enabled })
+    } catch {
+      setPreferences((current) => ({ ...current, [key]: previous }))
+      toast({ title: "Preference not saved", description: "Please try again.", variant: "destructive" })
+    }
+  }
+
   useEffect(() => {
     async function fetchNotifications() {
       try {
-        setIsLoading(true)
-        const response = await api.get("/notifications/history")
-        setNotifications(response.data)
+        const response = await notificationAPI.getAll({ limit: 100 })
+        setNotifications(response.data.data.notifications.map((item: any) => ({
+          ...item,
+          date: item.notification_date || item.created_at,
+          read: Boolean(item.is_read),
+        })))
       } catch (error) {
         console.error("Failed to fetch notifications:", error)
         toast({
@@ -141,33 +166,17 @@ export function NotificationsHistory() {
           description: "Failed to load notifications. Please try again.",
           variant: "destructive",
         })
-      } finally {
-        setIsLoading(false)
       }
     }
 
     fetchNotifications()
   }, [toast])
-  */
 
-  const markAsRead = (id: string) => {
+  const markAsRead = async (id: string) => {
+    await notificationAPI.markAsRead(id)
     setNotifications((prev) =>
       prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
     )
-
-    // API integration
-    /*
-    try {
-      await api.put(`/notifications/${id}/read`)
-    } catch (error) {
-      console.error("Failed to mark notification as read:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update notification. Please try again.",
-        variant: "destructive",
-      })
-    }
-    */
 
     toast({
       title: "Notification updated",
@@ -175,7 +184,8 @@ export function NotificationsHistory() {
     })
   }
 
-  const deleteNotification = (id: string) => {
+  const deleteNotification = async (id: string) => {
+    await notificationAPI.delete(id)
     setNotifications((prev) => prev.filter((notification) => notification.id !== id))
 
     // API integration
@@ -198,7 +208,8 @@ export function NotificationsHistory() {
     })
   }
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    await notificationAPI.markAllAsRead()
     setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })))
 
     // API integration
@@ -221,7 +232,8 @@ export function NotificationsHistory() {
     })
   }
 
-  const deleteAllRead = () => {
+  const deleteAllRead = async () => {
+    await notificationAPI.clearAllRead()
     setNotifications((prev) => prev.filter((notification) => !notification.read))
 
     // API integration
@@ -458,7 +470,7 @@ export function NotificationsHistory() {
                 <Label htmlFor="budget-email">Budget Alerts</Label>
                 <p className="text-sm text-muted-foreground">Receive emails when you approach budget limits.</p>
               </div>
-              <Switch id="budget-email" defaultChecked />
+              <Switch id="budget-email" checked={preferences.budget_email} onCheckedChange={(value) => updatePreference("budget_email", value)} />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
@@ -466,7 +478,7 @@ export function NotificationsHistory() {
                 <Label htmlFor="payment-email">Payment Reminders</Label>
                 <p className="text-sm text-muted-foreground">Receive emails about upcoming payments.</p>
               </div>
-              <Switch id="payment-email" defaultChecked />
+              <Switch id="payment-email" checked={preferences.payment_email} onCheckedChange={(value) => updatePreference("payment_email", value)} />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
@@ -474,7 +486,7 @@ export function NotificationsHistory() {
                 <Label htmlFor="savings-email">Savings Goals</Label>
                 <p className="text-sm text-muted-foreground">Receive emails about your savings goals progress.</p>
               </div>
-              <Switch id="savings-email" defaultChecked />
+              <Switch id="savings-email" checked={preferences.savings_email} onCheckedChange={(value) => updatePreference("savings_email", value)} />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
@@ -482,7 +494,7 @@ export function NotificationsHistory() {
                 <Label htmlFor="credit-email">Credit Updates</Label>
                 <p className="text-sm text-muted-foreground">Receive emails about credit card and loan updates.</p>
               </div>
-              <Switch id="credit-email" defaultChecked />
+              <Switch id="credit-email" checked={preferences.credit_email} onCheckedChange={(value) => updatePreference("credit_email", value)} />
             </div>
           </CardContent>
         </Card>
@@ -500,7 +512,7 @@ export function NotificationsHistory() {
                   Receive push notifications when you approach budget limits.
                 </p>
               </div>
-              <Switch id="budget-push" defaultChecked />
+              <Switch id="budget-push" checked={preferences.budget_push} onCheckedChange={(value) => updatePreference("budget_push", value)} />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
@@ -508,7 +520,7 @@ export function NotificationsHistory() {
                 <Label htmlFor="payment-push">Payment Reminders</Label>
                 <p className="text-sm text-muted-foreground">Receive push notifications about upcoming payments.</p>
               </div>
-              <Switch id="payment-push" defaultChecked />
+              <Switch id="payment-push" checked={preferences.payment_push} onCheckedChange={(value) => updatePreference("payment_push", value)} />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
@@ -518,7 +530,7 @@ export function NotificationsHistory() {
                   Receive push notifications about your savings goals progress.
                 </p>
               </div>
-              <Switch id="savings-push" defaultChecked />
+              <Switch id="savings-push" checked={preferences.savings_push} onCheckedChange={(value) => updatePreference("savings_push", value)} />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
@@ -528,7 +540,7 @@ export function NotificationsHistory() {
                   Receive push notifications about credit card and loan updates.
                 </p>
               </div>
-              <Switch id="credit-push" defaultChecked />
+              <Switch id="credit-push" checked={preferences.credit_push} onCheckedChange={(value) => updatePreference("credit_push", value)} />
             </div>
           </CardContent>
         </Card>

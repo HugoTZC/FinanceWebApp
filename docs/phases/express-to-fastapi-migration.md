@@ -93,7 +93,7 @@ La rama avanzada debe tratarse como fuente de cambios seleccionados. No debe fus
 - Presupuestos, categorías presupuestarias y alertas. Implementado y cubierto por pruebas en FastAPI.
 - Metas de ahorro y progreso. Implementado y cubierto por pruebas en FastAPI.
 - Pagos recurrentes y progreso. Implementado y cubierto por pruebas en FastAPI.
-- Notificaciones: listado, marcar una, marcar todas, eliminar una y limpiar todas.
+- Notificaciones: listado, marcar una, marcar todas, eliminar una y limpiar todas. Implementado y cubierto por pruebas en FastAPI.
 
 **Salida verificable**
 
@@ -105,9 +105,9 @@ La rama avanzada debe tratarse como fuente de cambios seleccionados. No debe fus
 
 **Rutas a migrar**
 
-- Perfil del usuario.
-- Configuración general y preferencias de notificación.
-- Cambio y eliminación de cuenta.
+- Perfil del usuario. Implementado y cubierto por pruebas en FastAPI, excepto avatar.
+- Configuración general y preferencias de notificación. Implementado y cubierto por pruebas en FastAPI.
+- Cambio y eliminación de cuenta. Implementado y cubierto por pruebas en FastAPI.
 - Avatar.
 
 **Trabajo previo obligatorio**

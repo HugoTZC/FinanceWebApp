@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { AlertTriangle } from "lucide-react"
+import { userAPI } from "@/lib/api"
 
 export function DangerZoneForm() {
   const router = useRouter()
@@ -37,8 +38,7 @@ export function DangerZoneForm() {
     setIsDeleting(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await userAPI.deleteAccount()
 
       // Clear local storage
       localStorage.removeItem("token")
