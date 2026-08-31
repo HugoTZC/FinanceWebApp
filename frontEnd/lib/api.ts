@@ -417,4 +417,12 @@ export const dashboardAPI = {
   },
 }
 
+export const analysisAPI = {
+  getBudget: (year?: number, month?: number) => api.get("/analysis/budget", { params: { year, month } }),
+  getWeekly: (weeksBack = 4) => api.get("/analysis/weekly", { params: { weeks_back: weeksBack } }),
+  getDueDates: (days = 7) => api.get("/analysis/due-dates", { params: { days } }),
+  getObligations: () => api.get("/analysis/obligations"),
+  getMonthly: (months = 6) => api.get("/analysis/monthly", { params: { months } }),
+}
+
 export default api

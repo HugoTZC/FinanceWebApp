@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from auth_api import router as auth_router
+from analysis_api import router as analysis_router
 from budget_api import router as budget_router
 from credit_card_api import router as credit_card_router
 from dashboard_api import router as dashboard_router
@@ -82,6 +83,7 @@ app = FastAPI(
     version="0.1.0",
 )
 app.add_middleware(ServicePrefixMiddleware, prefix=PUBLIC_PREFIX)
+app.include_router(analysis_router)
 app.include_router(auth_router)
 app.include_router(budget_router)
 app.include_router(credit_card_router)
