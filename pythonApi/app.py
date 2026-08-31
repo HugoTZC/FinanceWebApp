@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 from auth_api import router as auth_router
 from credit_card_api import router as credit_card_router
 from financial_core_api import router as financial_core_router
+from loan_api import router as loan_router
 from supabase_client import SupabaseConfigurationError, SupabaseRequestError
 from transaction_api import router as transaction_router
 
@@ -79,6 +80,7 @@ app.add_middleware(ServicePrefixMiddleware, prefix=PUBLIC_PREFIX)
 app.include_router(auth_router)
 app.include_router(credit_card_router)
 app.include_router(financial_core_router)
+app.include_router(loan_router)
 app.include_router(transaction_router)
 
 

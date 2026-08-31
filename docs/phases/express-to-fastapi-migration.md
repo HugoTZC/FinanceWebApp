@@ -72,7 +72,7 @@ La rama avanzada debe tratarse como fuente de cambios seleccionados. No debe fus
 - Categorías: predeterminadas, combinadas y CRUD de categorías del usuario. Implementado y cubierto por pruebas en FastAPI.
 - Tarjetas: CRUD, gasto total, gasto por categoría y gasto mensual. Implementado y cubierto por pruebas en FastAPI.
 - Transacciones: listado, detalle, años, resumen mensual, categorías, movimientos por tarjeta y CRUD completo. Implementado y cubierto por pruebas en FastAPI.
-- Préstamos: CRUD.
+- Préstamos: CRUD. Implementado y cubierto por pruebas en FastAPI.
 
 **Reglas críticas**
 
