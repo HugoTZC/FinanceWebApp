@@ -9,6 +9,7 @@ from auth_api import router as auth_router
 from credit_card_api import router as credit_card_router
 from financial_core_api import router as financial_core_router
 from supabase_client import SupabaseConfigurationError, SupabaseRequestError
+from transaction_api import router as transaction_router
 
 
 PUBLIC_PREFIX = "/api/v2"
@@ -78,6 +79,7 @@ app.add_middleware(ServicePrefixMiddleware, prefix=PUBLIC_PREFIX)
 app.include_router(auth_router)
 app.include_router(credit_card_router)
 app.include_router(financial_core_router)
+app.include_router(transaction_router)
 
 
 @app.exception_handler(SupabaseConfigurationError)
