@@ -18,6 +18,8 @@ const processQueue = (error: unknown = null) => {
 };
 
 const defaultApiUrl = process.env.NODE_ENV === "production" ? "/api" : "http://localhost:5000/api"
+const pythonApiUrl = process.env.NEXT_PUBLIC_PYTHON_API_URL
+  || (process.env.NODE_ENV === "production" ? "/api/v2" : "http://localhost:8000/api/v2")
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_LEGACY_API_URL || defaultApiUrl,
@@ -368,6 +370,7 @@ export const userAPI = {
     formData.append('avatar', file);
     
     return api.post("/users/avatar", formData, {
+      baseURL: pythonApiUrl,
       headers: {
         'Content-Type': 'multipart/form-data'
       }

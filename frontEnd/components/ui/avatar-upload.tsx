@@ -130,10 +130,12 @@ export function AvatarUpload({
           </div>
         ) : (
           <Button 
+            type="button"
             variant="secondary" 
             size="icon" 
             className="absolute bottom-0 right-0 rounded-full h-8 w-8 shadow-md"
             onClick={handleUploadClick}
+            aria-label="Seleccionar una foto de perfil"
           >
             <Camera className="h-4 w-4" />
           </Button>
@@ -146,6 +148,7 @@ export function AvatarUpload({
         accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
         onChange={handleFileChange}
+        aria-label="Archivo de foto de perfil"
       />
     </div>
   )
