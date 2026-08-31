@@ -3,7 +3,7 @@
 import React, { useState, useRef, ChangeEvent } from 'react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Camera, Trash2, Loader2 } from 'lucide-react'
+import { Camera, Loader2 } from 'lucide-react'
 import { userAPI } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 
@@ -46,8 +46,7 @@ export function AvatarUpload({
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Check if file is an image
-    if (!file.type.startsWith('image/')) {
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
       toast({
         title: "Error",
         description: "Por favor, selecciona un archivo de imagen válido.",
@@ -119,10 +118,7 @@ export function AvatarUpload({
       <div className="relative">
         <Avatar className={`${sizeClasses[size]} border-2 border-primary`}>
           <AvatarImage 
-            src={avatarUrl.startsWith('/') 
-              ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${avatarUrl}` 
-              : avatarUrl
-            } 
+            src={avatarUrl}
             alt={userName} 
           />
           <AvatarFallback>{getInitials(userName)}</AvatarFallback>
@@ -147,7 +143,7 @@ export function AvatarUpload({
       <input
         type="file"
         ref={fileInputRef}
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
         onChange={handleFileChange}
       />

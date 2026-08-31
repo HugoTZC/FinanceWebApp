@@ -5,3 +5,4 @@ bcrypt==5.0.0
 email-validator==2.3.0
 httpx==0.28.1
 PyJWT==2.13.0
+python-multipart==0.0.20

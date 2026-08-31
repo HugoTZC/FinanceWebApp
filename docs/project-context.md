@@ -52,7 +52,7 @@ La migración es incremental: Express permanece activo mientras los dominios se 
 1. Confirmar por nombre y entorno que Vercel Production contiene `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET` y `JWT_REFRESH_SECRET`, sin exponerlos al cliente.
 2. Mantener una prueba de integración que demuestre que un usuario no puede leer ni modificar filas de otro usuario a través de la API Express.
 3. Decidir cuándo migrar de autenticación propia a Supabase Auth y reemplazar el esquema server-only con políticas por propietario basadas en `auth.uid()`.
-4. Migrar avatares a almacenamiento persistente antes de habilitar nuevas cargas en producción.
+4. Aplicar y verificar la configuración del bucket persistente de avatares antes de habilitar nuevas cargas en producción.
 5. Revisar y fusionar por separado las ramas funcionales pendientes, especialmente la corrección de pagos de tarjeta.
 
 ## Fuentes canónicas

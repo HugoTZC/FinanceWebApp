@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 from auth_api import router as auth_router
 from budget_api import router as budget_router
 from credit_card_api import router as credit_card_router
+from dashboard_api import router as dashboard_router
 from financial_core_api import router as financial_core_router
 from loan_api import router as loan_router
 from notification_api import router as notification_router
@@ -84,6 +85,7 @@ app.add_middleware(ServicePrefixMiddleware, prefix=PUBLIC_PREFIX)
 app.include_router(auth_router)
 app.include_router(budget_router)
 app.include_router(credit_card_router)
+app.include_router(dashboard_router)
 app.include_router(financial_core_router)
 app.include_router(loan_router)
 app.include_router(notification_router)

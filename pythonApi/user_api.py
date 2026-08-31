@@ -1,9 +1,12 @@
 """Profile, settings and account routes for the FastAPI migration."""
 from __future__ import annotations
+from pathlib import PurePosixPath
 from typing import Any, Literal
-from fastapi import APIRouter, HTTPException, Response
+from uuid import uuid4
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from auth_api import ACCESS_COOKIE, REFRESH_COOKIE, CurrentUser, Store, _public_user
+from storage_client import AVATAR_BUCKET, Storage
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -43,6 +46,28 @@ def _one(rows: list[dict[str, Any]], resource: str) -> dict[str, Any]:
 def _owned(user_id: str) -> dict[str, str]:
     return {"user_id": f"eq.{user_id}"}
 
+AVATAR_TYPES = {
+    b"\xff\xd8\xff": ("image/jpeg", "jpg"),
+    b"\x89PNG\r\n\x1a\n": ("image/png", "png"),
+    b"GIF87a": ("image/gif", "gif"),
+    b"GIF89a": ("image/gif", "gif"),
+}
+
+def _avatar_type(content: bytes) -> tuple[str, str] | None:
+    for signature, result in AVATAR_TYPES.items():
+        if content.startswith(signature):
+            return result
+    if len(content) >= 12 and content[0:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp", "webp"
+    return None
+
+def _stored_avatar_path(url: str | None) -> str | None:
+    marker = f"/storage/v1/object/public/{AVATAR_BUCKET}/"
+    if not url or marker not in url:
+        return None
+    path = url.split(marker, 1)[1]
+    return path if path and ".." not in PurePosixPath(path).parts else None
+
 @router.get("/profile")
 def get_profile(user: CurrentUser) -> dict[str, Any]:
     return {"status": "success", "data": {"user": _public_user(user)}}
@@ -50,6 +75,28 @@ def get_profile(user: CurrentUser) -> dict[str, Any]:
 @router.patch("/profile")
 def update_profile(payload: ProfileUpdate, user: CurrentUser, store: Store) -> dict[str, Any]:
     updated = _one(store.update("users", _changes(payload), {"id": f"eq.{user['id']}"}), "User")
+    return {"status": "success", "data": {"user": _public_user(updated)}}
+
+@router.post("/avatar")
+async def upload_avatar(user: CurrentUser, store: Store, storage: Storage, avatar: UploadFile = File(...)) -> dict[str, Any]:
+    content = await avatar.read(5 * 1024 * 1024 + 1)
+    if not content or len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Avatar must be between 1 byte and 5 MB")
+    detected = _avatar_type(content)
+    if detected is None:
+        raise HTTPException(status_code=415, detail="Avatar must be a JPEG, PNG, WebP or GIF image")
+    content_type, extension = detected
+    user_id = str(user["id"])
+    object_path = f"{user_id}/{uuid4().hex}.{extension}"
+    avatar_url = storage.upload(AVATAR_BUCKET, object_path, content, content_type)
+    old_path = _stored_avatar_path(str(user.get("avatar_url") or ""))
+    try:
+        updated = _one(store.update("users", {"avatar_url": avatar_url}, {"id": f"eq.{user_id}"}), "User")
+    except Exception:
+        storage.delete(AVATAR_BUCKET, [object_path])
+        raise
+    if old_path and old_path != object_path:
+        storage.delete(AVATAR_BUCKET, [old_path])
     return {"status": "success", "data": {"user": _public_user(updated)}}
 
 @router.get("/settings")

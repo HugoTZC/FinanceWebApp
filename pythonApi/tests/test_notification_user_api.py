@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app import app
 from auth_api import get_store
+from storage_client import AVATAR_BUCKET, get_storage
 
 USER_ID = "11111111-1111-4111-8111-111111111111"
 OTHER_ID = "22222222-2222-4222-8222-222222222222"
@@ -46,13 +47,23 @@ class FakeStore:
             if op == "eq" and str(row.get(key)).lower() != expected.lower(): return False
         return True
 
+class FakeStorage:
+    def __init__(self) -> None:
+        self.uploads: list[tuple[str, str, bytes, str]] = []
+        self.deletions: list[tuple[str, list[str]]] = []
+    def upload(self, bucket: str, path: str, content: bytes, content_type: str) -> str:
+        self.uploads.append((bucket, path, content, content_type))
+        return f"https://example.supabase.co/storage/v1/object/public/{bucket}/{path}"
+    def delete(self, bucket: str, paths: list[str]) -> None:
+        self.deletions.append((bucket, paths))
+
 def headers() -> dict[str, str]:
     token = jwt.encode({"id": USER_ID, "iat": datetime.now(UTC), "exp": datetime.now(UTC)+timedelta(hours=1)}, SECRET, algorithm="HS256")
     return {"Authorization": f"Bearer {token}"}
 
 @pytest.fixture
 def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
-    fake = FakeStore(); monkeypatch.setenv("JWT_SECRET", SECRET); app.dependency_overrides[get_store] = lambda: fake
+    fake = FakeStore(); storage = FakeStorage(); monkeypatch.setenv("JWT_SECRET", SECRET); app.dependency_overrides[get_store] = lambda: fake; app.dependency_overrides[get_storage] = lambda: storage
     yield fake; app.dependency_overrides.clear()
 
 @pytest.fixture
@@ -88,6 +99,19 @@ def test_invalid_or_empty_user_updates_are_rejected(client: TestClient) -> None:
     assert client.patch("/api/v2/users/profile", headers=headers(), json={}).status_code == 400
     assert client.patch("/api/v2/users/settings", headers=headers(), json={"theme": "neon"}).status_code == 422
     assert client.patch("/api/v2/users/notification-preferences", headers=headers(), json={}).status_code == 400
+
+def test_avatar_upload_is_validated_and_persisted(client: TestClient, store: FakeStore) -> None:
+    png = b"\x89PNG\r\n\x1a\n" + b"safe-image-data"
+    response = client.post(
+        "/api/v2/users/avatar", headers=headers(), files={"avatar": ("avatar.png", png, "image/png")}
+    )
+    assert response.status_code == 200
+    url = response.json()["data"]["user"]["avatar_url"]
+    assert f"/{AVATAR_BUCKET}/{USER_ID}/" in url
+    assert store.tables["users"][0]["avatar_url"] == url
+    assert client.post(
+        "/api/v2/users/avatar", headers=headers(), files={"avatar": ("fake.png", b"not-an-image", "image/png")}
+    ).status_code == 415
 
 def test_delete_account_revokes_refresh_tokens(client: TestClient, store: FakeStore) -> None:
     response = client.delete("/api/v2/users", headers=headers())
