@@ -90,7 +90,7 @@ La rama avanzada debe tratarse como fuente de cambios seleccionados. No debe fus
 
 **Rutas a migrar**
 
-- Presupuestos, categorías presupuestarias y alertas.
+- Presupuestos, categorías presupuestarias y alertas. Implementado y cubierto por pruebas en FastAPI.
 - Metas de ahorro y progreso.
 - Pagos recurrentes y progreso.
 - Notificaciones: listado, marcar una, marcar todas, eliminar una y limpiar todas.
