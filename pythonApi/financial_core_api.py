@@ -54,6 +54,12 @@ class UserCategoryUpdate(BaseModel):
     color: str | None = Field(default=None, max_length=20)
 
 
+class DefaultCategoryColorUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+
+
 def _owned_params(user_id: str, item_id: str | None = None) -> dict[str, str]:
     params = {"user_id": f"eq.{user_id}"}
     if item_id is not None:
@@ -196,12 +202,20 @@ def get_account_history(
 
 
 def _default_categories(
-    store: DataStore, category_type: str | None = None
+    store: DataStore, category_type: str | None = None, user_id: str | None = None
 ) -> list[dict[str, Any]]:
     params = {"select": "*", "is_default": "eq.true", "order": "name.asc"}
     if category_type is not None:
         params["type"] = f"eq.{category_type}"
-    return store.select("categories", params)
+    categories = store.select("categories", params)
+    if user_id is None:
+        return categories
+    preferences = store.select(
+        "user_default_category_preferences",
+        {"select": "category_id,color", "user_id": f"eq.{user_id}"},
+    )
+    colors = {str(item["category_id"]): item["color"] for item in preferences}
+    return [category | {"color": colors.get(str(category["id"]), category.get("color"))} for category in categories]
 
 
 def _user_categories(
@@ -215,8 +229,7 @@ def _user_categories(
 
 @router.get("/categories/default")
 def get_default_categories(user: CurrentUser, store: Store) -> dict[str, Any]:
-    del user
-    return {"status": "success", "data": {"categories": _default_categories(store)}}
+    return {"status": "success", "data": {"categories": _default_categories(store, user_id=str(user["id"]))}}
 
 
 @router.get("/categories/type/{category_type}")
@@ -225,7 +238,7 @@ def get_categories_by_type(
 ) -> dict[str, Any]:
     defaults = [
         category | {"source": "default"}
-        for category in _default_categories(store, category_type)
+        for category in _default_categories(store, category_type, str(user["id"]))
     ]
     custom = [
         category | {"source": "user"}
@@ -303,9 +316,36 @@ def delete_user_category(
     return Response(status_code=204)
 
 
+@router.patch("/categories/{category_id}")
+def update_default_category_color(
+    category_id: str,
+    payload: DefaultCategoryColorUpdate,
+    user: CurrentUser,
+    store: Store,
+) -> dict[str, Any]:
+    category = _first_or_404(
+        store.select(
+            "categories",
+            {"select": "*", "id": f"eq.{category_id}", "is_default": "eq.true"},
+        ),
+        "Default category",
+    )
+    owned = {"user_id": f"eq.{user['id']}", "category_id": f"eq.{category_id}"}
+    preference = store.select("user_default_category_preferences", {"select": "*"} | owned)
+    if preference:
+        store.update("user_default_category_preferences", {"color": payload.color}, owned)
+    else:
+        store.insert(
+            "user_default_category_preferences",
+            {"user_id": user["id"], "category_id": category_id, "color": payload.color},
+        )
+    updated = category | {"color": payload.color, "source": "default"}
+    return {"status": "success", "data": {"category": updated}}
+
+
 @router.get("/categories")
 def get_all_categories(user: CurrentUser, store: Store) -> dict[str, Any]:
-    defaults = [category | {"source": "default"} for category in _default_categories(store)]
+    defaults = [category | {"source": "default"} for category in _default_categories(store, user_id=str(user["id"]))]
     custom = [
         category | {"source": "user"}
         for category in _user_categories(store, str(user["id"]))

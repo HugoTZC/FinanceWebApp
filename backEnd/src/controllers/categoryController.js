@@ -8,7 +8,7 @@ const { AppError } = require('../utils/helpers');
 exports.getDefaultCategories = async (req, res, next) => {
   try {
     // Get default categories
-    const categories = await categoryModel.getDefaultCategories();
+    const categories = await categoryModel.getDefaultCategories(req.user.id);
     
     res.status(200).json({
       status: 'success',
@@ -213,6 +213,30 @@ exports.deleteUserCategory = async (req, res, next) => {
       status: 'success',
       data: null
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update the current user's color for a default category.
+ * All other default-category fields remain immutable.
+ * @route PATCH /api/categories/:id
+ */
+exports.updateDefaultCategory = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const keys = Object.keys(req.body || {});
+    const { color } = req.body || {};
+
+    if (keys.length !== 1 || keys[0] !== 'color' || !/^#[0-9a-fA-F]{6}$/.test(color || '')) {
+      return next(new AppError('Only a valid hexadecimal color can be updated', 400));
+    }
+
+    const category = await categoryModel.updateDefaultCategoryColor(id, req.user.id, color);
+    if (!category) return next(new AppError('Default category not found', 404));
+
+    res.status(200).json({ status: 'success', data: { category } });
   } catch (error) {
     next(error);
   }

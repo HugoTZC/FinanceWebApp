@@ -34,6 +34,7 @@ class FakeStore:
                 {"id": "category-1", "user_id": USER_ID, "name": "Mascotas", "type": "expense"},
                 {"id": "category-other", "user_id": OTHER_USER_ID, "name": "Ajena", "type": "expense"},
             ],
+            "user_default_category_preferences": [],
             "transactions": [
                 {"id": "transaction-1", "user_id": USER_ID, "bank_account_id": "account-1", "amount": 100, "type": "income", "transaction_date": datetime.now(UTC).date().isoformat()},
                 {"id": "transaction-other", "user_id": OTHER_USER_ID, "bank_account_id": "account-1", "amount": 9999, "type": "expense", "transaction_date": datetime.now(UTC).date().isoformat()},
@@ -154,6 +155,24 @@ def test_categories_preserve_express_contract_and_ownership(client: TestClient) 
     assert client.get("/api/v2/categories/user/category-other", headers=_headers()).status_code == 404
     assert client.patch("/api/v2/categories/user/category-other", headers=_headers(), json={"name": "Cambio"}).status_code == 404
     assert client.delete("/api/v2/categories/user/category-other", headers=_headers()).status_code == 404
+
+
+def test_default_category_only_allows_owner_scoped_color_override(client: TestClient, store: FakeStore) -> None:
+    response = client.patch(
+        "/api/v2/categories/default-expense",
+        headers=_headers(),
+        json={"color": "#123ABC"},
+    )
+    assert response.status_code == 200
+    assert response.json()["data"]["category"]["color"] == "#123ABC"
+    combined = client.get("/api/v2/categories", headers=_headers()).json()["data"]["categories"]
+    assert next(row for row in combined if row["id"] == "default-expense")["color"] == "#123ABC"
+    assert client.patch(
+        "/api/v2/categories/default-expense",
+        headers=_headers(),
+        json={"name": "Not allowed", "color": "#FFFFFF"},
+    ).status_code == 422
+    assert store.tables["categories"][1]["name"] == "Alimentos"
 
 
 def test_invalid_or_empty_payloads_are_rejected(client: TestClient) -> None:

@@ -5,7 +5,7 @@ const categoryModel = {
    * Get all default categories
    * @returns {Array} Categories
    */
-  async getDefaultCategories() {
+  async getDefaultCategories(userId = null) {
     const query = `
       SELECT *
       FROM public.categories
@@ -14,7 +14,18 @@ const categoryModel = {
     `;
     
     const result = await db.query(query);
-    return result.rows;
+    if (!userId) return result.rows;
+
+    const preferences = await db.query(`
+      SELECT category_id, color
+      FROM public.user_default_category_preferences
+      WHERE user_id = $1
+    `, [userId]);
+    const colors = new Map(preferences.rows.map(preference => [preference.category_id, preference.color]));
+    return result.rows.map(category => ({
+      ...category,
+      color: colors.get(category.id) || category.color
+    }));
   },
   
   /**
@@ -149,22 +160,42 @@ const categoryModel = {
    * @returns {Array} All categories
    */
   async getAllCategories(userId) {
-    const query = `
-      SELECT id, name, type, category_group, icon, color, 'default' as source
-      FROM public.categories
-      WHERE is_default = TRUE
-      
-      UNION ALL
-      
-      SELECT id, name, type, category_group, icon, color, 'user' as source
-      FROM public.user_categories
-      WHERE user_id = $1
-      
-      ORDER BY name
-    `;
-    
-    const result = await db.query(query, [userId]);
-    return result.rows;
+    const [defaults, custom] = await Promise.all([
+      this.getDefaultCategories(userId),
+      this.getUserCategories(userId)
+    ]);
+    return [
+      ...defaults.map(category => ({ ...category, source: 'default' })),
+      ...custom.map(category => ({ ...category, source: 'user' }))
+    ].sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  async updateDefaultCategoryColor(id, userId, color) {
+    const category = await this.findById(id);
+    if (!category || !category.is_default) return null;
+
+    const existing = await db.query(`
+      SELECT category_id
+      FROM public.user_default_category_preferences
+      WHERE user_id = $1 AND category_id = $2
+    `, [userId, id]);
+
+    if (existing.rows.length) {
+      await db.query(`
+        UPDATE public.user_default_category_preferences
+        SET color = $1, updated_at = NOW()
+        WHERE user_id = $2 AND category_id = $3
+        RETURNING *
+      `, [color, userId, id]);
+    } else {
+      await db.query(`
+        INSERT INTO public.user_default_category_preferences (user_id, category_id, color)
+        VALUES ($1, $2, $3)
+        RETURNING *
+      `, [userId, id, color]);
+    }
+
+    return { ...category, color, source: 'default' };
   },
   
   /**
@@ -195,16 +226,17 @@ const categoryModel = {
     console.log('Executing default query:', defaultQuery, 'with params:', [type]);
     console.log('Executing user query:', userQuery, 'with params:', [userId, type]);
 
-    const [defaultResult, userResult] = await Promise.all([
-      db.query(defaultQuery, [type]),
+    const [defaultCategories, userResult] = await Promise.all([
+      this.getDefaultCategories(userId),
       db.query(userQuery, [userId, type])
     ]);
 
-    console.log('Default categories result:', defaultResult.rows);
+    const defaultRows = defaultCategories.filter(category => category.type === type);
+    console.log('Default categories result:', defaultRows);
     console.log('User categories result:', userResult.rows);
 
     // Process results to ensure correct structure
-    const processedDefault = defaultResult.rows.map(cat => ({
+    const processedDefault = defaultRows.map(cat => ({
       id: cat.id,
       name: cat.name,
       type: cat.type,

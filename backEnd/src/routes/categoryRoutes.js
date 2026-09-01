@@ -11,6 +11,7 @@ router.use(protect);
 router.get('/default', categoryController.getDefaultCategories);
 router.get('/', categoryController.getAllCategories);
 router.get('/type/:type', categoryController.getCategoriesByType);
+router.patch('/:id', categoryController.updateDefaultCategory);
 
 // User category routes
 router.route('/user')
