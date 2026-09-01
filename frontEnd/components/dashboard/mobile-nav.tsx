@@ -12,8 +12,8 @@ export function MobileNav({ onNavClick }: MobileNavProps) {
   return (
     <div className="flex flex-col space-y-3 p-4">
       <Link href="/#overview" className="mb-4 flex items-center space-x-3 rounded-lg px-2 py-2" onClick={onNavClick}>
-        <Image src="/finappLogo.png" alt="FinApp" width={32} height={32} className="h-8 w-8" />
-        <span className="font-bold">FinApp</span>
+        <Image src="/finappLogo.png" alt="FricMX" width={32} height={32} className="h-8 w-8" />
+        <span className="font-bold">FricMX</span>
       </Link>
 
       <div className="space-y-1">

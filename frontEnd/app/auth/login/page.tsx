@@ -111,14 +111,14 @@ export default function LoginPage() {
               <div className="animate-logo-spin w-10 h-10 relative">
                 <Image
                   src="/finappYellow.png"
-                  alt="FinanceTracker Logo"
+                  alt="FricMX Logo"
                   fill
                   className="absolute"
                 />
               </div>
             </div>
           </div>
-          <CardTitle className="text-2xl text-center">Finapp</CardTitle>
+          <CardTitle className="text-2xl text-center">FricMX</CardTitle>
           <CardDescription className="text-center">Ingresa tus credenciales para acceder a tu cuenta</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

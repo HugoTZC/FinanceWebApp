@@ -9,7 +9,7 @@ export default function Loading() {
         <div className="rounded-full bg-primary p-3 animate-[flip_1s_linear_infinite]">
           <Image
             src="/finappYellow.png"
-            alt="FinanceTracker Logo"
+            alt="FricMX Logo"
             width={32}
             height={32}
             className="h-8 w-8"

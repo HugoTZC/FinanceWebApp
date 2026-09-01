@@ -21,8 +21,8 @@ export function BrowserNotificationPermission() {
     const result = await Notification.requestPermission()
     setPermission(result)
     if (result === "granted") {
-      new Notification("FinanceWebApp", { body: "Browser notifications are now enabled." })
-      toast({ title: "Notifications enabled", description: "This browser can now display FinanceWebApp alerts." })
+      new Notification("FricMX", { body: "Browser notifications are now enabled." })
+      toast({ title: "Notifications enabled", description: "This browser can now display FricMX alerts." })
     } else if (result === "denied") {
       toast({ title: "Permission blocked", description: "You can re-enable notifications from your browser site settings.", variant: "destructive" })
     }

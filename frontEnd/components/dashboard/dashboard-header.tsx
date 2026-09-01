@@ -79,12 +79,12 @@ export function DashboardHeader() {
           <Link href="/" className="mr-6 flex items-center space-x-2">
             <Image 
               src="/finappLogo.png" 
-              alt="FinApp Logo" 
+              alt="FricMX Logo"
               width={24} 
               height={24} 
               className="h-6 w-6" 
             />
-            <span className="hidden font-bold sm:inline-block">FinApp</span>
+            <span className="hidden font-bold sm:inline-block">FricMX</span>
           </Link>
           <nav className="flex items-center space-x-6 text-sm font-medium">
             <Link href="/#overview" className="transition-colors hover:text-foreground/80 text-foreground">
@@ -118,12 +118,12 @@ export function DashboardHeader() {
         <Link href="/" className="mr-6 flex items-center space-x-2 md:hidden">
           <Image 
             src="/finappLogo.png" 
-            alt="FinApp Logo" 
+            alt="FricMX Logo"
             width={24} 
             height={24} 
             className="h-6 w-6" 
           />
-          <span className="font-bold">FinApp</span>
+          <span className="font-bold">FricMX</span>
         </Link>
         <div className="flex flex-1 items-center justify-end space-x-2">
           <NotificationsDropdown />

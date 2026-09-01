@@ -155,13 +155,21 @@ export function CategoriesForm() {
     e.preventDefault()
 
     try {
-      await categoriesAPI.createUserCategory(formData)
+      const response = await categoriesAPI.createUserCategory(formData)
+      const createdCategory = response?.data?.data?.category
+      if (createdCategory) {
+        setCategories((current) =>
+          [...current, { ...createdCategory, source: "user" as const }].sort((a, b) =>
+            a.name.localeCompare(b.name),
+          ),
+        )
+      }
       toast({
         title: "Success",
         description: "Category created successfully.",
       })
       setIsAddDialogOpen(false)
-      fetchCategories()
+      await fetchCategories()
     } catch (error) {
       console.error("Failed to create category:", error)
       toast({

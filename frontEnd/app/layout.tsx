@@ -9,9 +9,9 @@ import { UserProvider } from "@/lib/user-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "FinanceTracker",
-  description: "Track your finances and manage your budget",
-    generator: 'v0.dev'
+  title: "FricMX",
+  description: "Track your finances and manage your budget with FricMX",
+  generator: 'v0.dev'
 }
 
 export default function RootLayout({
