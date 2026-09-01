@@ -333,27 +333,27 @@ export const creditAPI = {
 // Categories API
 export const categoriesAPI = {
   getAll: () => {
-    return api.get("/categories")
+    return api.get("/categories", { baseURL: pythonApiUrl })
   },
   getByType: (type: string) => {
-    return api.get(`/categories/type/${type}`)
+    return api.get(`/categories/type/${type}`, { baseURL: pythonApiUrl })
   },
   // User categories
   getUserCategories: () => {
-    return api.get("/categories/user")
+    return api.get("/categories/user", { baseURL: pythonApiUrl })
   },
   createUserCategory: (data: any) => {
-    return api.post("/categories/user", data)
+    return api.post("/categories/user", data, { baseURL: pythonApiUrl })
   },
   updateUserCategory: (id: string, data: any) => {
-    return api.patch(`/categories/user/${id}`, data)
+    return api.patch(`/categories/user/${id}`, data, { baseURL: pythonApiUrl })
   },
   deleteUserCategory: (id: string) => {
-    return api.delete(`/categories/user/${id}`)
+    return api.delete(`/categories/user/${id}`, { baseURL: pythonApiUrl })
   },
   // Default categories
   updateDefaultCategory: (id: string, data: any) => {
-    return api.patch(`/categories/${id}`, data)
+    return api.patch(`/categories/${id}`, data, { baseURL: pythonApiUrl })
   }
 }
 
