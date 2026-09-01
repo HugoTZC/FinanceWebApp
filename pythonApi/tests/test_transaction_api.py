@@ -160,6 +160,36 @@ def test_create_resolves_category_and_validates_owned_payment_resource(client: T
     ).status_code == 400
 
 
+def test_credit_payment_preserves_date_and_is_not_an_expense_category(client: TestClient, store: FakeStore) -> None:
+    created = client.post(
+        "/api/v2/transactions",
+        headers=_headers(),
+        json={
+            "title": "Pago de tarjeta",
+            "amount": 400,
+            "transaction_date": "2026-08-31",
+            "type": "credit-payment",
+            "credit_card_id": "card-1",
+        },
+    )
+    assert created.status_code == 201
+    transaction = created.json()["data"]["transaction"]
+    assert transaction["transaction_date"] == "2026-08-31"
+    assert transaction["type"] == "expense"
+    assert transaction["payment_method"] == "credit_card_payment"
+    assert transaction["category_id"] is None
+    assert transaction["user_category_id"] is None
+    assert store.tables["credit_cards"][0]["balance"] == 2100
+
+    detail = client.get(f"/api/v2/transactions/{transaction['id']}", headers=_headers())
+    assert detail.json()["data"]["transaction"]["type"] == "credit-payment"
+    assert detail.json()["data"]["transaction"]["category"] == "Credit Card Payment"
+
+    categories = client.get("/api/v2/transactions/categories/2026/8", headers=_headers())
+    names = {item["category_name"] for item in categories.json()["data"]["categories"]}
+    assert "Credit Card Payment" not in names
+
+
 def test_detail_update_delete_are_owner_scoped(client: TestClient, store: FakeStore) -> None:
     detail = client.get("/api/v2/transactions/tx-food", headers=_headers())
     assert detail.status_code == 200

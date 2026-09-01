@@ -116,7 +116,7 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
     } else if (type === "credit-payment") {
       // Automatically configure for credit payment
       setPaymentMethod("credit-card")
-      setCategory("credit-payment") // Assuming you have a "credit-payment" category ID
+      setCategory("")
       setIsCredit(false)
       // Fetch credit options if necessary
       if (creditOptions.length === 0 && !isLoadingCards) {
@@ -281,7 +281,7 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
       try {
         setIsLoadingCategories(true)
         // Map special transaction types to "expense" for API compatibility
-        const categoryType = type === "card-payment" || type === "savings-deposit" ? "expense" : type
+        const categoryType = type === "credit-payment" || type === "savings-deposit" ? "expense" : type
         const response = await categoriesAPI.getByType(categoryType)
         if (response?.data?.data?.categories) {
           setCategories(response.data.data.categories)
@@ -362,7 +362,7 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
   
   // Set title based on selected card/savings
   useEffect(() => {
-    if (type === "card-payment" && selectedCard) {
+    if (type === "credit-payment" && selectedCard) {
       const selectedCardObj = apiCreditCards.find(card => card.id === selectedCard)
       if (selectedCardObj) {
         setTitle(`${selectedCardObj.name} payment`)
@@ -384,7 +384,8 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
     e.preventDefault()
 
     // Validate form
-    if (!title || !amount || !category || !date) {
+    const requiresCategory = type === "income" || type === "expense"
+    if (!title || !amount || (requiresCategory && !category) || !date) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -393,7 +394,7 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
       return
     }
 
-    if (type === "expense" && paymentMethod === "credit-card" && !selectedCard) {
+    if (((type === "expense" && paymentMethod === "credit-card") || type === "credit-payment") && !selectedCard) {
       toast({
         title: "Error",
         description: "Please select a credit card",
@@ -412,15 +413,16 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
       console.log("[TRANSACTION] Creating transaction with payment method:", normalizedPaymentMethod)
       
       // Create transaction object - use category name as received from the API
+      const isCreditPayment = type === "credit-payment"
       const transaction = {
         title,
         amount: Number.parseFloat(amount),
         type,
-        category,
-        transaction_date: date.toISOString(),
+        category: requiresCategory ? category : undefined,
+        transaction_date: format(date, "yyyy-MM-dd"),
         comment,
-        payment_method: normalizedPaymentMethod,
-        credit_card_id: paymentMethod === "credit-card" ? selectedCard : null,
+        payment_method: isCreditPayment ? "credit_card" : normalizedPaymentMethod,
+        credit_card_id: paymentMethod === "credit-card" || isCreditPayment ? selectedCard : null,
         assign_to_savings: type === "expense" && paymentMethod === "cash" ? assignToSavings : false,
         savings_goal_id: assignToSavings && selectedSavingsAccount ? selectedSavingsAccount : null,
       }
@@ -430,46 +432,6 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
       // Create the transaction
       const response = await transactionsAPI.create(transaction)
       console.log("[TRANSACTION] Transaction created:", response.data)
-
-      // Si es una transacción de tarjeta de crédito, actualizar el saldo de la tarjeta
-      if (type === "expense" && paymentMethod === "credit-card" && selectedCard) {
-        try {
-          // Get the current card data
-          const cardResponse = await creditAPI.getCardById(selectedCard)
-          
-          console.log("[TRANSACTION] Credit card response:", cardResponse)
-          
-          if (cardResponse?.data?.status === 'success' && cardResponse?.data?.data?.card) {
-            const card = cardResponse.data.data.card
-            
-            console.log("[TRANSACTION] Updating credit card balance:", {
-              oldBalance: card.balance,
-              amount: Number.parseFloat(amount),
-              newBalance: card.balance + Number.parseFloat(amount)
-            })
-            
-            // Update the card balance
-            await creditAPI.updateCard(selectedCard, {
-              ...card,
-              balance: card.balance + Number.parseFloat(amount),
-            })
-            
-            console.log("[TRANSACTION] Credit card balance updated successfully")
-          } else {
-            console.warn("[TRANSACTION] Could not get credit card data - card may not exist or was deleted:", cardResponse)
-            // Don't show error toast - the transaction was created successfully
-          }
-        } catch (cardError: any) {
-          console.error("[TRANSACTION] Error updating credit card balance:", cardError?.message || cardError)
-          // No fallamos toda la operación si solo falla la actualización de la tarjeta
-          // porque la transacción ya fue creada exitosamente
-          toast({
-            title: "Warning",
-            description: "Transaction created, but credit card balance could not be updated",
-            variant: "default",
-          })
-        }
-      }
 
       toast({
         title: "Success",
@@ -597,7 +559,7 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              disabled={type === "card-payment" || type === "savings-deposit"}
+              disabled={type === "credit-payment" || type === "savings-deposit"}
             />
           </div>
 
@@ -665,38 +627,13 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
             </div>
           )}
 
-          {/* Special UI for Card Payment */}
-          {type === "card-payment" && (
-            <div className="space-y-2">
-              <Label htmlFor="creditCard">Select Card</Label>
-              <Select value={selectedCard} onValueChange={setSelectedCard}>
-                <SelectTrigger id="creditCard">
-                  <SelectValue placeholder={isLoadingCards ? "Loading cards..." : "Select credit card"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {isLoadingCards ? (
-                    <SelectItem value="loading" disabled>Loading credit cards...</SelectItem>
-                  ) : apiCreditCards.length > 0 ? (
-                    apiCreditCards.map((card) => (
-                      <SelectItem key={card.id} value={card.id}>
-                        {card.name} (*{card.last_four})
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="no-cards" disabled>No credit cards found</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           {/* Special UI for Credit Payment */}
           {type === "credit-payment" && (
             <div className="space-y-2">
-              <Label htmlFor="creditOption">Select Credit</Label>
+              <Label htmlFor="creditOption">Select Credit Card</Label>
               <Select value={selectedCard} onValueChange={setSelectedCard}>
                 <SelectTrigger id="creditOption">
-                  <SelectValue placeholder={isLoadingCards ? "Loading credits..." : "Select credit card or loan"} />
+                  <SelectValue placeholder={isLoadingCards ? "Loading cards..." : "Select credit card"} />
                 </SelectTrigger>
                 <SelectContent>
                   {isLoadingCards ? (
@@ -717,21 +654,7 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
                         </>
                       )}
                       
-                      {/* Loans Section */}
-                      {apiLoans.length > 0 && (
-                        <>
-                          <SelectItem value="loans-header" disabled className="font-semibold">
-                            Loans
-                          </SelectItem>
-                          {apiLoans.map((loan) => (
-                            <SelectItem key={`loan-${loan.id}`} value={loan.id}>
-                              {loan.name} (#{loan.bank_number}) - ${typeof loan.balance === 'number' ? loan.balance.toFixed(2) : Number(loan.balance).toFixed(2)}
-                            </SelectItem>
-                          ))}
-                        </>
-                      )}
-                      
-                      {apiCreditCards.length === 0 && apiLoans.length === 0 && (
+                      {apiCreditCards.length === 0 && (
                         <SelectItem value="no-credits" disabled>
                           No credit cards or loans found
                         </SelectItem>

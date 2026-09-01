@@ -7,7 +7,7 @@ from datetime import date
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query, Response
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from auth_api import CurrentUser, DataStore, Store
 
@@ -21,8 +21,8 @@ class TransactionCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     amount: float = Field(gt=0, allow_inf_nan=False)
     transaction_date: date
-    type: Literal["income", "expense"]
-    category: str = Field(min_length=1)
+    type: Literal["income", "expense", "credit-payment", "savings-deposit"]
+    category: str | None = None
     payment_method: str | None = "cash"
     bank_account_id: str | None = None
     credit_card_id: str | None = None
@@ -35,6 +35,16 @@ class TransactionCreate(BaseModel):
     def accept_iso_datetime(cls, value: Any) -> Any:
         return str(value)[:10] if isinstance(value, str) else value
 
+    @model_validator(mode="after")
+    def validate_transaction_kind(self) -> "TransactionCreate":
+        if self.type in {"income", "expense"} and not self.category:
+            raise ValueError("A category is required for income and expense transactions")
+        if self.type == "credit-payment" and not self.credit_card_id:
+            raise ValueError("A credit card is required for a credit payment")
+        if self.type == "savings-deposit" and not (self.savings_goal_id or self.recurring_payment_id):
+            raise ValueError("A savings destination is required for a savings deposit")
+        return self
+
 
 class TransactionUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -42,7 +52,7 @@ class TransactionUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     amount: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     transaction_date: date | None = None
-    type: Literal["income", "expense"] | None = None
+    type: Literal["income", "expense", "credit-payment", "savings-deposit"] | None = None
     category: str | None = None
     category_id: str | None = None
     user_category_id: str | None = None
@@ -103,9 +113,21 @@ def _normalize_payment(
 ) -> tuple[str, str | None, str | None]:
     if transaction_type == "income":
         return "cash", None, None
+    if transaction_type == "credit-payment":
+        if not credit_card_id:
+            raise HTTPException(status_code=400, detail="Credit card ID is required for a credit payment")
+        _require_owned(store, "credit_cards", user_id, credit_card_id, "Credit card")
+        return "credit_card_payment", None, credit_card_id
+    if transaction_type == "savings-deposit":
+        return "cash", None, None
     method = (payment_method or "cash").replace("-", "_")
-    if method not in {"cash", "bank_account", "credit_card"}:
+    if method not in {"cash", "bank_account", "credit_card", "credit_card_payment"}:
         raise HTTPException(status_code=400, detail="Invalid payment method")
+    if method == "credit_card_payment":
+        if not credit_card_id:
+            raise HTTPException(status_code=400, detail="Credit card ID is required for a credit payment")
+        _require_owned(store, "credit_cards", user_id, credit_card_id, "Credit card")
+        return method, None, credit_card_id
     if method == "bank_account":
         if not bank_account_id:
             raise HTTPException(status_code=400, detail="Bank account ID is required when payment method is bank_account")
@@ -129,12 +151,14 @@ def _validate_optional_ownership(store: DataStore, user_id: str, payload: dict[s
 def _balance_effects(transaction: dict[str, Any]) -> list[tuple[str, str, str, float]]:
     amount = float(transaction["amount"])
     effects: list[tuple[str, str, str, float]] = []
-    if transaction.get("credit_card_id") and transaction.get("type") == "expense":
+    if transaction.get("credit_card_id") and transaction.get("payment_method") == "credit_card_payment":
+        effects.append(("credit_cards", str(transaction["credit_card_id"]), "balance", -amount))
+    elif transaction.get("credit_card_id") and transaction.get("type") == "expense":
         effects.append(("credit_cards", str(transaction["credit_card_id"]), "balance", amount))
     if transaction.get("bank_account_id"):
         delta = amount if transaction.get("type") == "income" else -amount
         effects.append(("bank_accounts", str(transaction["bank_account_id"]), "balance", delta))
-    if transaction.get("savings_goal_id") and transaction.get("payment_method") == "savings_deposit":
+    if transaction.get("savings_goal_id") and transaction.get("type") == "savings-deposit":
         effects.append(("savings_goals", str(transaction["savings_goal_id"]), "current_amount", amount))
     if transaction.get("recurring_payment_id") and transaction.get("type") == "expense":
         effects.append(("recurring_payments", str(transaction["recurring_payment_id"]), "current_amount", amount))
@@ -179,12 +203,22 @@ def _enrich(rows: list[dict[str, Any]], store: DataStore, user_id: str) -> list[
         user_category_id = row.get("user_category_id")
         default_name = defaults.get(str(category_id)) if category_id else None
         custom_name = custom.get(str(user_category_id)) if user_category_id else None
+        display_type = (
+            "credit-payment"
+            if row.get("payment_method") == "credit_card_payment"
+            else row.get("type")
+        )
+        transfer_name = {
+            "credit-payment": "Credit Card Payment",
+            "savings-deposit": "Savings Deposit",
+        }.get(str(display_type))
         enriched.append(
             row
             | {
                 "date": row.get("transaction_date"),
                 "description": row.get("title"),
-                "category": default_name or custom_name or "Other",
+                "type": display_type,
+                "category": default_name or custom_name or transfer_name or "Other",
                 "category_name": default_name,
                 "user_category_name": custom_name,
                 "bank_account_name": accounts.get(str(row.get("bank_account_id"))),
@@ -264,7 +298,11 @@ def create_transaction(
     payload: TransactionCreate, user: CurrentUser, store: Store
 ) -> dict[str, Any]:
     user_id = str(user["id"])
-    category_id, user_category_id = _resolve_category(store, user_id, payload.category)
+    category_id, user_category_id = (
+        _resolve_category(store, user_id, payload.category)
+        if payload.category
+        else (None, None)
+    )
     payment_method, bank_account_id, credit_card_id = _normalize_payment(
         store,
         user_id,
@@ -275,6 +313,7 @@ def create_transaction(
     )
     data = payload.model_dump(mode="json", exclude={"category"}) | {
         "user_id": user_id,
+        "type": "expense" if payload.type == "credit-payment" else payload.type,
         "category_id": category_id,
         "user_category_id": user_category_id,
         "payment_method": payment_method,
@@ -311,7 +350,7 @@ def get_monthly_summary(
     income = expenses = 0.0
     for row in _all_user_transactions(store, str(user["id"])):
         row_date = _transaction_date(row)
-        if row_date.year == year and row_date.month == month:
+        if row_date.year == year and row_date.month == month and row.get("payment_method") != "credit_card_payment":
             if row.get("type") == "income":
                 income += float(row["amount"])
             elif row.get("type") == "expense":
@@ -404,15 +443,30 @@ def update_transaction(
             raise HTTPException(status_code=400, detail="A category is required")
         changes["category_id"], changes["user_category_id"] = _resolve_category(store, user_id, selected)
     combined = existing | changes
+    requested_type = (
+        "credit-payment"
+        if combined.get("payment_method") == "credit_card_payment"
+        else combined["type"]
+    )
+    if requested_type in {"credit-payment", "savings-deposit"}:
+        changes |= {"category_id": None, "user_category_id": None}
+        combined |= {"category_id": None, "user_category_id": None}
+    elif not (combined.get("category_id") or combined.get("user_category_id")):
+        raise HTTPException(status_code=400, detail="A category is required")
     method, bank_id, card_id = _normalize_payment(
         store,
         user_id,
-        str(combined["type"]),
+        str(requested_type),
         combined.get("payment_method"),
         combined.get("bank_account_id"),
         combined.get("credit_card_id"),
     )
-    changes |= {"payment_method": method, "bank_account_id": bank_id, "credit_card_id": card_id}
+    changes |= {
+        "type": "expense" if requested_type == "credit-payment" else requested_type,
+        "payment_method": method,
+        "bank_account_id": bank_id,
+        "credit_card_id": card_id,
+    }
     _validate_optional_ownership(store, user_id, combined)
     _apply_balance_effects(store, user_id, existing, multiplier=-1)
     updated = _first_or_404(

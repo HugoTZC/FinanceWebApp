@@ -30,6 +30,7 @@ class FakeStore:
             "transactions": [
                 {"id": "income", "user_id": USER_ID, "title": "Salary", "amount": 3000, "type": "income", "category_id": "salary", "transaction_date": now.date().isoformat()},
                 {"id": "expense", "user_id": USER_ID, "title": "Market", "amount": 500, "type": "expense", "category_id": "food", "transaction_date": now.date().isoformat()},
+                {"id": "card-payment", "user_id": USER_ID, "title": "Card payment", "amount": 250, "type": "expense", "payment_method": "credit_card_payment", "credit_card_id": "card-1", "category_id": None, "transaction_date": now.date().isoformat()},
                 {"id": "previous", "user_id": USER_ID, "title": "Old", "amount": 100, "type": "expense", "category_id": "food", "transaction_date": previous.date().isoformat()},
                 {"id": "private", "user_id": OTHER_ID, "title": "Private", "amount": 99999, "type": "income", "category_id": "salary", "transaction_date": now.date().isoformat()},
             ],

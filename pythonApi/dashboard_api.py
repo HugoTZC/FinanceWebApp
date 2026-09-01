@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
@@ -17,16 +18,32 @@ COLORS = ["#4ade80", "#60a5fa", "#f87171", "#fbbf24", "#a78bfa", "#fb923c", "#34
 MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
+def _local_now(timezone: str) -> datetime:
+    try:
+        return datetime.now(ZoneInfo(timezone))
+    except ZoneInfoNotFoundError as error:
+        raise HTTPException(status_code=422, detail="Invalid timezone") from error
+
+
 def _summary(rows: list[dict[str, Any]], year: int, month: int) -> dict[str, float]:
-    selected = [row for row in rows if _transaction_date(row).year == year and _transaction_date(row).month == month]
+    selected = [
+        row for row in rows
+        if _transaction_date(row).year == year
+        and _transaction_date(row).month == month
+        and row.get("payment_method") != "credit_card_payment"
+    ]
     income = round(sum(float(row.get("amount") or 0) for row in selected if row.get("type") == "income"), 2)
     expenses = round(sum(float(row.get("amount") or 0) for row in selected if row.get("type") == "expense"), 2)
     return {"income": income, "expenses": expenses, "balance": round(income - expenses, 2)}
 
 
 @router.get("/overview")
-def get_overview(user: CurrentUser, store: Store) -> dict[str, Any]:
-    now = datetime.now(UTC)
+def get_overview(
+    user: CurrentUser,
+    store: Store,
+    timezone: Annotated[str, Query(max_length=100)] = "UTC",
+) -> dict[str, Any]:
+    now = _local_now(timezone)
     previous_year, previous_month = (now.year - 1, 12) if now.month == 1 else (now.year, now.month - 1)
     rows = _all_user_transactions(store, str(user["id"]))
     current = _summary(rows, now.year, now.month) | {"year": now.year, "month": now.month}
@@ -49,16 +66,22 @@ def get_categories(
     user: CurrentUser,
     store: Store,
     month: int | None = None,
+    timezone: Annotated[str, Query(max_length=100)] = "UTC",
 ) -> dict[str, Any]:
     if month is not None and not 1 <= month <= 12:
         raise HTTPException(status_code=422, detail="Month must be between 1 and 12")
-    target_month = month or datetime.now(UTC).month
+    target_month = month or _local_now(timezone).month
     user_id = str(user["id"])
     defaults, custom, _, _ = _lookup_maps(store, user_id)
     totals: dict[str, float] = defaultdict(float)
     for row in _all_user_transactions(store, user_id):
         row_date = _transaction_date(row)
-        if row_date.year != year or row_date.month != target_month or row.get("type") != "expense":
+        if (
+            row_date.year != year
+            or row_date.month != target_month
+            or row.get("type") != "expense"
+            or row.get("payment_method") == "credit_card_payment"
+        ):
             continue
         name = defaults.get(str(row.get("category_id"))) or custom.get(str(row.get("user_category_id"))) or "Uncategorized"
         totals[name] += float(row.get("amount") or 0)

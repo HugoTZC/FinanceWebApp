@@ -403,13 +403,15 @@ export const notificationAPI = {
 // Dashboard API
 export const dashboardAPI = {
   getOverview: () => {
-    return api.get("/dashboard/overview")
+    return api.get("/dashboard/overview", { params: { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } })
   },
   getMonthlyData: (year: number) => {
     return api.get(`/dashboard/monthly/${year}`)
   },
   getCategoryBreakdown: (year: number, month?: string) => {
-    return api.get(`/dashboard/categories/${year}${month ? `/${month}` : ""}`)
+    return api.get(`/dashboard/categories/${year}${month ? `/${month}` : ""}`, {
+      params: { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    })
   },
   getRecentTransactions: (limit = 5) => {
     return api.get(`/dashboard/transactions/recent`, { params: { limit } })

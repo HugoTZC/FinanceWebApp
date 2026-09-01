@@ -52,6 +52,8 @@ interface TransactionDetailsProps {
   onTransactionUpdated?: () => void
 }
 
+type TransactionType = "income" | "expense" | "credit-payment" | "savings-deposit"
+
 export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTransactionUpdated }: TransactionDetailsProps) {
   // Transaction state
   const [transaction, setTransaction] = useState<any>(null)
@@ -62,7 +64,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
   // Form fields
   const [title, setTitle] = useState("")
   const [amount, setAmount] = useState("")
-  const [type, setType] = useState<"income" | "expense">("expense")
+  const [type, setType] = useState<TransactionType>("expense")
   const [category, setCategory] = useState("")
   const [date, setDate] = useState<Date>(new Date())
   const [comment, setComment] = useState("")
@@ -89,14 +91,14 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
   
   // Fetch categories when type changes
   useEffect(() => {
-    if (isOpen && type) {
+    if (isOpen && (type === "income" || type === "expense")) {
       fetchCategories()
     }
   }, [isOpen, type])
   
   // Fetch credit cards when needed
   useEffect(() => {
-    if (isOpen && type === "expense" && paymentMethod === "credit-card") {
+    if (isOpen && ((type === "expense" && paymentMethod === "credit-card") || type === "credit-payment")) {
       fetchCreditCards()
     }
   }, [isOpen, type, paymentMethod])
@@ -122,7 +124,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
         // Set form fields
         setTitle(transactionData.title || "")
         setAmount(transactionData.amount?.toString() || "")
-        setType(transactionData.type || "expense")
+        setType((transactionData.type || "expense") as TransactionType)
         
         // Handle category selection - use either category_id or user_category_id
         const catId = transactionData.category_id || transactionData.user_category_id
@@ -130,7 +132,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
         
         // Set date
         if (transactionData.transaction_date) {
-          setDate(new Date(transactionData.transaction_date))
+          setDate(new Date(`${String(transactionData.transaction_date).slice(0, 10)}T12:00:00`))
         }
         
         // Set comment
@@ -138,7 +140,11 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
         
         // Set payment method
         const method = transactionData.payment_method || "cash"
-        setPaymentMethod(method === "credit_card" ? "credit-card" : method)
+        setPaymentMethod(
+          method === "credit_card" || method === "credit_card_payment"
+            ? "credit-card"
+            : method,
+        )
         
         // Set selected card if available
         if (transactionData.credit_card_id) {
@@ -194,7 +200,8 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
   }
   
   async function handleSave() {
-    if (!title || !amount || !category || !date) {
+    const requiresCategory = type === "income" || type === "expense"
+    if (!title || !amount || (requiresCategory && !category) || !date) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -203,7 +210,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
       return
     }
     
-    if (type === "expense" && paymentMethod === "credit-card" && !selectedCard) {
+    if (((type === "expense" && paymentMethod === "credit-card") || type === "credit-payment") && !selectedCard) {
       toast({
         title: "Error",
         description: "Please select a credit card",
@@ -223,11 +230,11 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
         title,
         amount: Number.parseFloat(amount),
         type,
-        category_id: category,
-        transaction_date: date.toISOString(),
+        category_id: requiresCategory ? category : undefined,
+        transaction_date: format(date, "yyyy-MM-dd"),
         comment,
-        payment_method: normalizedPaymentMethod,
-        credit_card_id: paymentMethod === "credit-card" ? selectedCard : null,
+        payment_method: type === "credit-payment" ? "credit_card" : normalizedPaymentMethod,
+        credit_card_id: paymentMethod === "credit-card" || type === "credit-payment" ? selectedCard : null,
       }
       
       // Update the transaction
@@ -318,13 +325,15 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="type">Type</Label>
-                  <Select value={type} onValueChange={(v) => setType(v as "income" | "expense")}>
+                  <Select value={type} onValueChange={(v) => setType(v as TransactionType)}>
                     <SelectTrigger id="type">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="income">Income</SelectItem>
                       <SelectItem value="expense">Expense</SelectItem>
+                      <SelectItem value="credit-payment">Credit Payment</SelectItem>
+                      <SelectItem value="savings-deposit">Savings Deposit</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -358,7 +367,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
                 />
               </div>
 
-              <div className="space-y-2">
+              {(type === "income" || type === "expense") && <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger id="category">
@@ -392,7 +401,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
                     )}
                   </SelectContent>
                 </Select>
-              </div>
+              </div>}
 
               {type === "expense" && (
                 <div className="space-y-2">
@@ -416,7 +425,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
                 </div>
               )}
 
-              {type === "expense" && paymentMethod === "credit-card" && (
+              {((type === "expense" && paymentMethod === "credit-card") || type === "credit-payment") && (
                 <div className="space-y-2">
                   <Label htmlFor="creditCard">Select Credit Card</Label>
                   <Select value={selectedCard} onValueChange={setSelectedCard}>
