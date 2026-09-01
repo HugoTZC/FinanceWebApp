@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { budgetAPI } from "@/lib/api"
+import { useTransactionRefresh } from "@/hooks/use-transaction-refresh"
 
 interface BudgetCategory {
   id: string
@@ -26,6 +27,7 @@ interface BudgetProgressProps {
 }
 
 export function BudgetProgress({ showAll = false }: BudgetProgressProps) {
+  const transactionRefresh = useTransactionRefresh()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("all")
   const [budgets, setBudgets] = useState<BudgetCategory[]>([])
@@ -81,7 +83,7 @@ export function BudgetProgress({ showAll = false }: BudgetProgressProps) {
 
     fetchBudgets()
     fetchAlerts()
-  }, [refreshKey, toast])
+  }, [refreshKey, toast, transactionRefresh])
 
   // Handle alert dismissal
   const dismissAlert = async (alertId: string) => {

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { dashboardAPI } from "@/lib/api"
 import { ArrowDown, ArrowUp } from "lucide-react"
+import { useTransactionRefresh } from "@/hooks/use-transaction-refresh"
 
 interface DashboardOverview {
   currentMonth: {
@@ -28,6 +29,7 @@ interface DashboardOverview {
 }
 
 export function DashboardCards() {
+  const transactionRefresh = useTransactionRefresh()
   const [overview, setOverview] = useState<DashboardOverview | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +50,7 @@ export function DashboardCards() {
     }
 
     fetchDashboardOverview()
-  }, [])
+  }, [transactionRefresh])
 
   // Format numbers as currency
   const formatCurrency = (value: number) => {

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { transactionsAPI, categoriesAPI } from "@/lib/api"
 import { TransactionDetailsDialog } from "@/components/transactions/transaction-details-dialog"
+import { useTransactionRefresh } from "@/hooks/use-transaction-refresh"
 
 interface Transaction {
   id: string
@@ -27,6 +28,7 @@ interface RecentTransactionsProps {
 }
 
 export function RecentTransactions({ showAll = false }: RecentTransactionsProps) {
+  const transactionRefresh = useTransactionRefresh()
   // Controlar estado de hidratación
   const [isMounted, setIsMounted] = useState(false)
   
@@ -139,7 +141,7 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
     }
 
     fetchTransactions()
-  }, [isMounted, searchTerm, categoryFilter, typeFilter, yearFilter, monthFilter, weekFilter, years])
+  }, [isMounted, searchTerm, categoryFilter, typeFilter, yearFilter, monthFilter, weekFilter, years, transactionRefresh])
 
   // Fetch filter options on component mount - solo se ejecuta en el cliente
   useEffect(() => {
@@ -295,12 +297,6 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
     setIsTransactionDialogOpen(true)
   }
   
-  // Function to refresh transactions after update or delete
-  const handleTransactionUpdated = () => {
-    // Refresh transaction list
-    handleRetry()
-  }
-
   // El resto del componente se mantiene igual...
   return (
     <div className="space-y-4">
@@ -520,7 +516,6 @@ export function RecentTransactions({ showAll = false }: RecentTransactionsProps)
         isOpen={isTransactionDialogOpen}
         onClose={() => setIsTransactionDialogOpen(false)}
         transactionId={selectedTransactionId}
-        onTransactionUpdated={handleTransactionUpdated}
       />
     </div>
   )

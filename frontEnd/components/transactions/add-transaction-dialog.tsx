@@ -28,6 +28,7 @@ import { Slider } from "@/components/ui/slider"
 import { creditAPI, transactionsAPI, categoriesAPI, savingsAPI } from "@/lib/api"
 import type { CreditCardType, LoanType } from "@/types/credit"
 import { toast } from "@/components/ui/use-toast"
+import { notifyTransactionsChanged } from "@/hooks/use-transaction-refresh"
 
 // Define interfaces for savings goals and recurring payments
 interface SavingsGoal {
@@ -432,6 +433,7 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
       // Create the transaction
       const response = await transactionsAPI.create(transaction)
       console.log("[TRANSACTION] Transaction created:", response.data)
+      notifyTransactionsChanged()
 
       toast({
         title: "Success",

@@ -34,6 +34,7 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { transactionsAPI, categoriesAPI, creditAPI } from "@/lib/api"
 import type { CreditCardType } from "@/types/credit"
+import { notifyTransactionsChanged } from "@/hooks/use-transaction-refresh"
 
 interface Category {
   id: string
@@ -239,6 +240,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
       
       // Update the transaction
       await transactionsAPI.update(transactionId, updatedTransaction)
+      notifyTransactionsChanged()
       
       toast({
         title: "Success",
@@ -270,6 +272,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
       
       // Delete the transaction
       await transactionsAPI.delete(transactionId)
+      notifyTransactionsChanged()
       
       toast({
         title: "Success",

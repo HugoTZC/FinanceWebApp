@@ -8,6 +8,7 @@ import { AddSavingsDialog } from "@/components/savings/add-savings-dialog"
 import { savingsAPI } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { differenceInWeeks } from "date-fns"
+import { useTransactionRefresh } from "@/hooks/use-transaction-refresh"
 
 // Update the SavingsGoal interface to include weekly calculation
 interface SavingsGoal {
@@ -32,6 +33,7 @@ interface RecurringPayment {
 }
 
 export function SavingsOverview() {
+  const transactionRefresh = useTransactionRefresh()
   const [activeTab, setActiveTab] = useState("goals")
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([])
   const [recurringPayments, setRecurringPayments] = useState<RecurringPayment[]>([])
@@ -42,7 +44,7 @@ export function SavingsOverview() {
   // Fetch both savings goals and recurring payments from the backend
   useEffect(() => {
     fetchSavingsData()
-  }, [refreshTrigger]) // Add refreshTrigger to dependencies
+  }, [refreshTrigger, transactionRefresh]) // Refresh after savings or transaction changes
 
   // This function will be used to refresh data after adding a new goal or payment
   const fetchSavingsData = async () => {

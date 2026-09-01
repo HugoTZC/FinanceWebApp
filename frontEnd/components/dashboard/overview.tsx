@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { dashboardAPI } from "@/lib/api"
+import { useTransactionRefresh } from "@/hooks/use-transaction-refresh"
 
 // Sample data as fallback
 const sampleData = [
@@ -43,6 +44,7 @@ interface OverviewProps {
 }
 
 export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
+  const transactionRefresh = useTransactionRefresh()
   const [apiData, setApiData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -73,7 +75,7 @@ export function Overview({ onMonthSelect, selectedMonth }: OverviewProps) {
     }
 
     fetchOverviewData()
-  }, [])
+  }, [transactionRefresh])
 
   // Function to handle bar click
   const handleBarClick = (data: any) => {

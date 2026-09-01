@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 import { dashboardAPI } from "@/lib/api"
+import { useTransactionRefresh } from "@/hooks/use-transaction-refresh"
 
 // Sample data for each month - used as fallback
 const monthlyData = {
@@ -71,6 +72,7 @@ interface CategoryBreakdownProps {
 }
 
 export function CategoryBreakdown({ selectedMonth }: CategoryBreakdownProps) {
+  const transactionRefresh = useTransactionRefresh()
   const [apiData, setApiData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -119,7 +121,7 @@ export function CategoryBreakdown({ selectedMonth }: CategoryBreakdownProps) {
     }
 
     fetchCategoryData()
-  }, [selectedMonth])
+  }, [selectedMonth, transactionRefresh])
 
   // Determine which data to use
   let data: any[]

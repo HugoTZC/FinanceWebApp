@@ -9,6 +9,7 @@ import { CreditCard } from "lucide-react"
 import { creditAPI } from "@/lib/api"
 import { AddCreditDialog } from "@/components/credit/add-credit-dialog"
 import { CreditCardSpending } from "@/components/credit/credit-card-spending"
+import { useTransactionRefresh } from "@/hooks/use-transaction-refresh"
 
 interface CreditCardType {
   id: string
@@ -104,6 +105,7 @@ const loans: Loan[] = [
 ]
 
 export function CreditCards() {
+  const transactionRefresh = useTransactionRefresh()
   const [activeTab, setActiveTab] = useState("cards")
   const [apiCreditCards, setApiCreditCards] = useState<CreditCardType[]>([])
   const [apiLoans, setApiLoans] = useState<Loan[]>([])
@@ -205,7 +207,7 @@ export function CreditCards() {
     } else {
       fetchLoans()
     }
-  }, [activeTab])
+  }, [activeTab, transactionRefresh])
 
   // Function to handle card deletion
   async function handleDeleteCard(id: string) {
