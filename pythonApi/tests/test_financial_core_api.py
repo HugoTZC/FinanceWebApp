@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import jwt
@@ -36,8 +36,8 @@ class FakeStore:
             ],
             "user_default_category_preferences": [],
             "transactions": [
-                {"id": "transaction-1", "user_id": USER_ID, "bank_account_id": "account-1", "amount": 100, "type": "income", "transaction_date": datetime.now(UTC).date().isoformat()},
-                {"id": "transaction-other", "user_id": OTHER_USER_ID, "bank_account_id": "account-1", "amount": 9999, "type": "expense", "transaction_date": datetime.now(UTC).date().isoformat()},
+                {"id": "transaction-1", "user_id": USER_ID, "bank_account_id": "account-1", "amount": 100, "type": "income", "transaction_date": date.today().isoformat()},
+                {"id": "transaction-other", "user_id": OTHER_USER_ID, "bank_account_id": "account-1", "amount": 9999, "type": "expense", "transaction_date": date.today().isoformat()},
             ],
         }
         self.operations: list[tuple[str, str, dict[str, Any]]] = []

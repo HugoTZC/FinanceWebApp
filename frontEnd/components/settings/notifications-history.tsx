@@ -188,20 +188,6 @@ export function NotificationsHistory() {
     await notificationAPI.delete(id)
     setNotifications((prev) => prev.filter((notification) => notification.id !== id))
 
-    // API integration
-    /*
-    try {
-      await api.delete(`/notifications/${id}`)
-    } catch (error) {
-      console.error("Failed to delete notification:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete notification. Please try again.",
-        variant: "destructive",
-      })
-    }
-    */
-
     toast({
       title: "Notification deleted",
       description: "Notification has been removed.",
@@ -212,20 +198,6 @@ export function NotificationsHistory() {
     await notificationAPI.markAllAsRead()
     setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })))
 
-    // API integration
-    /*
-    try {
-      await api.put("/notifications/read-all")
-    } catch (error) {
-      console.error("Failed to mark all notifications as read:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update notifications. Please try again.",
-        variant: "destructive",
-      })
-    }
-    */
-
     toast({
       title: "Notifications updated",
       description: "All notifications marked as read.",
@@ -235,20 +207,6 @@ export function NotificationsHistory() {
   const deleteAllRead = async () => {
     await notificationAPI.clearAllRead()
     setNotifications((prev) => prev.filter((notification) => !notification.read))
-
-    // API integration
-    /*
-    try {
-      await api.delete("/notifications/read")
-    } catch (error) {
-      console.error("Failed to delete read notifications:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete notifications. Please try again.",
-        variant: "destructive",
-      })
-    }
-    */
 
     toast({
       title: "Notifications deleted",
