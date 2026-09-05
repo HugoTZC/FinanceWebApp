@@ -177,6 +177,16 @@ export const transactionsAPI = {
   create: (data: any) => {
     return api.post("/transactions", data);
   },
+  uploadReceipt: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append("receipt", file);
+    return api.post(`/transactions/${id}/receipt`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  getReceipt: (id: string) => {
+    return api.get(`/transactions/${id}/receipt`, { responseType: "blob" });
+  },
   update: (id: string, data: any) => {
     return api.patch(`/transactions/${id}`, data);
   },

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app import app
 from auth_api import get_store
+from storage_client import get_storage
 
 
 USER_ID = "11111111-1111-4111-8111-111111111111"
@@ -84,6 +85,25 @@ class FakeStore:
         return True
 
 
+class FakeStorage:
+    def __init__(self) -> None:
+        self.files: dict[tuple[str, str], tuple[bytes, str]] = {}
+
+    def upload_private(self, bucket: str, path: str, content: bytes, content_type: str) -> str:
+        self.files[(bucket, path)] = (content, content_type)
+        return path
+
+    def download(self, bucket: str, path: str) -> tuple[bytes, str]:
+        return self.files[(bucket, path)]
+
+    def delete(self, bucket: str, paths: list[str]) -> None:
+        for path in paths:
+            self.files.pop((bucket, path), None)
+
+    def upload(self, bucket: str, path: str, content: bytes, content_type: str) -> str:
+        raise AssertionError("Public upload is not used for receipts")
+
+
 def _headers() -> dict[str, str]:
     token = jwt.encode(
         {"id": USER_ID, "iat": datetime.now(UTC), "exp": datetime.now(UTC) + timedelta(hours=1)},
@@ -98,6 +118,8 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     fake = FakeStore()
     monkeypatch.setenv("JWT_SECRET", JWT_SECRET)
     app.dependency_overrides[get_store] = lambda: fake
+    storage = FakeStorage()
+    app.dependency_overrides[get_storage] = lambda: storage
     yield fake
     app.dependency_overrides.clear()
 
@@ -242,3 +264,30 @@ def test_invalid_inputs_are_rejected(client: TestClient) -> None:
     ).status_code == 422
     assert client.get("/api/v2/transactions", headers=_headers(), params={"month": 13}).status_code == 422
     assert client.patch("/api/v2/transactions/tx-food", headers=_headers(), json={}).status_code == 400
+
+
+def test_receipt_upload_and_download_are_private_and_owner_scoped(client: TestClient, store: FakeStore) -> None:
+    image = b"\x89PNG\r\n\x1a\n" + b"receipt-image"
+    uploaded = client.post(
+        "/api/v2/transactions/tx-food/receipt",
+        headers=_headers(),
+        files={"receipt": ("receipt.png", image, "image/png")},
+    )
+    assert uploaded.status_code == 201
+    assert store.tables["transactions"][0]["receipt_path"].startswith(f"{USER_ID}/tx-food/")
+
+    downloaded = client.get("/api/v2/transactions/tx-food/receipt", headers=_headers())
+    assert downloaded.status_code == 200
+    assert downloaded.headers["content-type"] == "image/png"
+    assert downloaded.content == image
+
+    assert client.post(
+        "/api/v2/transactions/tx-other/receipt",
+        headers=_headers(),
+        files={"receipt": ("receipt.png", image, "image/png")},
+    ).status_code == 404
+    assert client.post(
+        "/api/v2/transactions/tx-food/receipt",
+        headers=_headers(),
+        files={"receipt": ("receipt.txt", b"not-an-image", "text/plain")},
+    ).status_code == 415

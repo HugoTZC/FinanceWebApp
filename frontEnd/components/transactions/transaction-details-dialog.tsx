@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
-import { CalendarIcon, Trash2, AlertCircle } from "lucide-react"
+import { CalendarIcon, Trash2, AlertCircle, ReceiptText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -82,6 +82,7 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
   const [isLoadingCategories, setIsLoadingCategories] = useState(false)
   const [apiCreditCards, setApiCreditCards] = useState<CreditCardType[]>([])
   const [isLoadingCards, setIsLoadingCards] = useState(false)
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
   
   // Get transaction details when component mounts or transactionId changes
   useEffect(() => {
@@ -89,6 +90,12 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
       fetchTransactionDetails()
     }
   }, [isOpen, transactionId])
+
+  useEffect(() => {
+    return () => {
+      if (receiptUrl) URL.revokeObjectURL(receiptUrl)
+    }
+  }, [receiptUrl])
   
   // Fetch categories when type changes
   useEffect(() => {
@@ -150,6 +157,17 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
         // Set selected card if available
         if (transactionData.credit_card_id) {
           setSelectedCard(transactionData.credit_card_id)
+        }
+        if (transactionData.receipt_path) {
+          try {
+            const receiptResponse = await transactionsAPI.getReceipt(transactionId)
+            setReceiptUrl(URL.createObjectURL(receiptResponse.data))
+          } catch (receiptError) {
+            console.error("Failed to load receipt:", receiptError)
+            setReceiptUrl(null)
+          }
+        } else {
+          setReceiptUrl(null)
         }
       } else {
         setError("Could not retrieve transaction details")
@@ -491,6 +509,21 @@ export function TransactionDetailsDialog({ isOpen, onClose, transactionId, onTra
                   onChange={(e) => setComment(e.target.value)}
                 />
               </div>
+
+              {receiptUrl && (
+                <div className="space-y-2">
+                  <Label>Receipt</Label>
+                  <a
+                    href={receiptUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 rounded-md border p-3 transition-colors hover:bg-muted"
+                  >
+                    <ReceiptText className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">View attached receipt</span>
+                  </a>
+                </div>
+              )}
             </div>
           )}
           

@@ -14,10 +14,13 @@ from supabase_client import SupabaseConfigurationError, SupabaseRequestError
 
 
 AVATAR_BUCKET = "avatars"
+RECEIPT_BUCKET = "transaction-receipts"
 
 
 class ObjectStorage(Protocol):
     def upload(self, bucket: str, path: str, content: bytes, content_type: str) -> str: ...
+    def upload_private(self, bucket: str, path: str, content: bytes, content_type: str) -> str: ...
+    def download(self, bucket: str, path: str) -> tuple[bytes, str]: ...
     def delete(self, bucket: str, paths: list[str]) -> None: ...
 
 
@@ -40,24 +43,36 @@ class SupabaseStorageClient:
     def close(self) -> None:
         self._client.close()
 
-    def ensure_avatar_bucket(self) -> None:
-        response = self._client.get(f"bucket/{AVATAR_BUCKET}")
+    def ensure_bucket(
+        self,
+        bucket: str,
+        *,
+        public: bool,
+        file_size_limit: int,
+        allowed_mime_types: list[str],
+    ) -> None:
+        response = self._client.get(f"bucket/{bucket}")
         if response.status_code == 404:
             response = self._client.post(
                 "bucket",
                 json={
-                    "id": AVATAR_BUCKET,
-                    "name": AVATAR_BUCKET,
-                    "public": True,
-                    "file_size_limit": 5 * 1024 * 1024,
-                    "allowed_mime_types": ["image/jpeg", "image/png", "image/webp", "image/gif"],
+                    "id": bucket,
+                    "name": bucket,
+                    "public": public,
+                    "file_size_limit": file_size_limit,
+                    "allowed_mime_types": allowed_mime_types,
                 },
             )
         if response.is_error and response.status_code != 409:
-            raise SupabaseRequestError(response.status_code, "ensure avatar bucket")
+            raise SupabaseRequestError(response.status_code, "ensure storage bucket")
 
     def upload(self, bucket: str, path: str, content: bytes, content_type: str) -> str:
-        self.ensure_avatar_bucket()
+        self.ensure_bucket(
+            bucket,
+            public=True,
+            file_size_limit=5 * 1024 * 1024,
+            allowed_mime_types=["image/jpeg", "image/png", "image/webp", "image/gif"],
+        )
         encoded_path = quote(path, safe="/")
         response = self._client.post(
             f"object/{bucket}/{encoded_path}",
@@ -67,6 +82,29 @@ class SupabaseStorageClient:
         if response.is_error:
             raise SupabaseRequestError(response.status_code, "upload avatar")
         return f"{self._url}/storage/v1/object/public/{bucket}/{encoded_path}"
+
+    def upload_private(self, bucket: str, path: str, content: bytes, content_type: str) -> str:
+        self.ensure_bucket(
+            bucket,
+            public=False,
+            file_size_limit=10 * 1024 * 1024,
+            allowed_mime_types=["image/jpeg", "image/png", "image/webp"],
+        )
+        encoded_path = quote(path, safe="/")
+        response = self._client.post(
+            f"object/{bucket}/{encoded_path}",
+            content=content,
+            headers={"Content-Type": content_type, "x-upsert": "false"},
+        )
+        if response.is_error:
+            raise SupabaseRequestError(response.status_code, "upload private asset")
+        return path
+
+    def download(self, bucket: str, path: str) -> tuple[bytes, str]:
+        response = self._client.get(f"object/{bucket}/{quote(path, safe='/')}")
+        if response.is_error:
+            raise SupabaseRequestError(response.status_code, "download private asset")
+        return response.content, response.headers.get("content-type", "application/octet-stream")
 
     def delete(self, bucket: str, paths: list[str]) -> None:
         if not paths:

@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
-import { CalendarIcon, Plus, CreditCardIcon, Wallet } from "lucide-react"
+import { CalendarIcon, Plus, CreditCardIcon, Wallet, Camera, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -87,6 +87,10 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
   const [isLoading, setIsLoading] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(false)
+  const [showNewCategory, setShowNewCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+  const [receipt, setReceipt] = useState<File | null>(null)
   const [isCredit, setIsCredit] = useState(false) // Add slider state for debit/credit option
 
   // Add this state for savings account assignment after the other state declarations
@@ -433,11 +437,24 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
       // Create the transaction
       const response = await transactionsAPI.create(transaction)
       console.log("[TRANSACTION] Transaction created:", response.data)
+      const createdId = response.data?.data?.transaction?.id
+      let receiptUploaded = true
+      if (receipt && createdId) {
+        try {
+          await transactionsAPI.uploadReceipt(createdId, receipt)
+        } catch (receiptError) {
+          receiptUploaded = false
+          console.error("Failed to upload receipt:", receiptError)
+        }
+      }
       notifyTransactionsChanged()
 
       toast({
-        title: "Success",
-        description: "Transaction added successfully",
+        title: receiptUploaded ? "Success" : "Transaction saved",
+        description: receiptUploaded
+          ? "Transaction added successfully"
+          : "The transaction was saved, but the receipt could not be uploaded.",
+        variant: receiptUploaded ? "default" : "destructive",
       })
 
       // Close the dialog after submission
@@ -466,9 +483,40 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
     setComment("")
     setPaymentMethod("cash")
     setSelectedCard("")
+    setReceipt(null)
+    setShowNewCategory(false)
+    setNewCategoryName("")
     // Add this to the resetForm function
     setAssignToSavings(false)
     setSelectedSavingsAccount("")
+  }
+
+  async function createCategoryFromTransaction() {
+    const name = newCategoryName.trim()
+    if (!name) return
+    try {
+      setIsCreatingCategory(true)
+      const categoryType = type === "income" ? "income" : "expense"
+      const response = await categoriesAPI.createUserCategory({
+        name,
+        type: categoryType,
+        category_group: categoryType === "income" ? "income" : "discretionary",
+        color: "#64748b",
+      })
+      const created = response.data?.data?.category
+      if (created) {
+        setCategories((current) => [...current, { ...created, source: "user" }])
+        setCategory(created.id)
+      }
+      setNewCategoryName("")
+      setShowNewCategory(false)
+      toast({ title: "Category created", description: `${name} is ready to use.` })
+    } catch (error) {
+      console.error("Failed to create category:", error)
+      toast({ title: "Error", description: "Could not create the category.", variant: "destructive" })
+    } finally {
+      setIsCreatingCategory(false)
+    }
   }
 
   return (
@@ -569,11 +617,20 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
           {(type === "income" || type === "expense") && (
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category} onValueChange={(value) => {
+                if (value === "create-category") {
+                  setShowNewCategory(true)
+                  return
+                }
+                setCategory(value)
+              }}>
                 <SelectTrigger id="category">
                   <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select category"} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="create-category" className="font-medium text-primary">
+                    <span className="flex items-center"><Plus className="mr-2 h-4 w-4" />Create custom category</span>
+                  </SelectItem>
                   {isLoadingCategories ? (
                     <SelectItem value="loading" disabled>Loading categories...</SelectItem>
                   ) : categories.length > 0 ? (
@@ -601,6 +658,26 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
                   )}
                 </SelectContent>
               </Select>
+              {showNewCategory && (
+                <div className="flex gap-2 rounded-md border bg-muted/40 p-2">
+                  <Input
+                    autoFocus
+                    value={newCategoryName}
+                    onChange={(event) => setNewCategoryName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault()
+                        void createCategoryFromTransaction()
+                      }
+                    }}
+                    placeholder="New category name"
+                    maxLength={255}
+                  />
+                  <Button type="button" size="sm" onClick={createCategoryFromTransaction} disabled={!newCategoryName.trim() || isCreatingCategory}>
+                    {isCreatingCategory ? "Creating..." : "Create"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -757,6 +834,43 @@ export function AddTransactionDialog({ triggerClassName }: AddTransactionDialogP
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="receipt">Receipt photo (optional)</Label>
+            {receipt ? (
+              <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{receipt.name}</p>
+                  <p className="text-xs text-muted-foreground">{(receipt.size / 1024 / 1024).toFixed(1)} MB</p>
+                </div>
+                <Button type="button" variant="ghost" size="icon" onClick={() => setReceipt(null)} aria-label="Remove receipt">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <label htmlFor="receipt" className="flex min-h-20 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-foreground">
+                <Camera className="h-5 w-5" />
+                Take a photo or choose from gallery
+              </label>
+            )}
+            <Input
+              id="receipt"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null
+                if (file && file.size > 10 * 1024 * 1024) {
+                  toast({ title: "Receipt too large", description: "Choose an image of 10 MB or less.", variant: "destructive" })
+                  event.target.value = ""
+                  return
+                }
+                setReceipt(file)
+              }}
+            />
+            <p className="text-xs text-muted-foreground">Stored privately and available only from your authenticated account.</p>
           </div>
 
           <DialogFooter>

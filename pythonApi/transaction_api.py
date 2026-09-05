@@ -5,14 +5,30 @@ from __future__ import annotations
 import math
 from datetime import date
 from typing import Annotated, Any, Literal
+from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Path, Query, Response
+from fastapi import APIRouter, File, HTTPException, Path, Query, Response, UploadFile
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from auth_api import CurrentUser, DataStore, Store
+from storage_client import RECEIPT_BUCKET, Storage
 
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+
+RECEIPT_TYPES = {
+    b"\xff\xd8\xff": ("jpg", "image/jpeg"),
+    b"\x89PNG\r\n\x1a\n": ("png", "image/png"),
+    b"RIFF": ("webp", "image/webp"),
+}
+
+
+def _receipt_type(content: bytes) -> tuple[str, str] | None:
+    for signature, detected in RECEIPT_TYPES.items():
+        if content.startswith(signature):
+            if detected[0] != "webp" or content[8:12] == b"WEBP":
+                return detected
+    return None
 
 
 class TransactionCreate(BaseModel):
@@ -328,6 +344,57 @@ def create_transaction(
     return {"status": "success", "data": {"transaction": transaction}}
 
 
+@router.post("/{transaction_id}/receipt", status_code=201)
+async def upload_transaction_receipt(
+    transaction_id: str,
+    user: CurrentUser,
+    store: Store,
+    storage: Storage,
+    receipt: UploadFile = File(...),
+) -> dict[str, Any]:
+    user_id = str(user["id"])
+    transaction = _first_or_404(
+        store.select("transactions", {"select": "id,receipt_path"} | _owned(user_id, transaction_id)),
+        "Transaction",
+    )
+    content = await receipt.read(10 * 1024 * 1024 + 1)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Receipt image must be 10 MB or smaller")
+    detected = _receipt_type(content)
+    if not detected:
+        raise HTTPException(status_code=415, detail="Receipt must be a JPEG, PNG, or WebP image")
+    extension, content_type = detected
+    object_path = f"{user_id}/{transaction_id}/{uuid4().hex}.{extension}"
+    stored_path = storage.upload_private(RECEIPT_BUCKET, object_path, content, content_type)
+    old_path = transaction.get("receipt_path")
+    try:
+        updated = _first_or_404(
+            store.update("transactions", {"receipt_path": stored_path}, _owned(user_id, transaction_id)),
+            "Transaction",
+        )
+    except Exception:
+        storage.delete(RECEIPT_BUCKET, [stored_path])
+        raise
+    if old_path:
+        storage.delete(RECEIPT_BUCKET, [str(old_path)])
+    return {"status": "success", "data": {"transaction": updated}}
+
+
+@router.get("/{transaction_id}/receipt")
+def get_transaction_receipt(
+    transaction_id: str, user: CurrentUser, store: Store, storage: Storage
+) -> Response:
+    transaction = _first_or_404(
+        store.select("transactions", {"select": "receipt_path"} | _owned(str(user["id"]), transaction_id)),
+        "Transaction",
+    )
+    receipt_path = transaction.get("receipt_path")
+    if not receipt_path:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    content, content_type = storage.download(RECEIPT_BUCKET, str(receipt_path))
+    return Response(content=content, media_type=content_type, headers={"Cache-Control": "private, max-age=300"})
+
+
 @router.get("/years")
 def get_transaction_years(user: CurrentUser, store: Store) -> dict[str, Any]:
     years = sorted(
@@ -478,7 +545,9 @@ def update_transaction(
 
 
 @router.delete("/{transaction_id}", status_code=204)
-def delete_transaction(transaction_id: str, user: CurrentUser, store: Store) -> Response:
+def delete_transaction(
+    transaction_id: str, user: CurrentUser, store: Store, storage: Storage
+) -> Response:
     user_id = str(user["id"])
     existing = _first_or_404(
         store.select("transactions", {"select": "*"} | _owned(user_id, transaction_id)),
@@ -489,4 +558,6 @@ def delete_transaction(transaction_id: str, user: CurrentUser, store: Store) -> 
         store.delete("transactions", _owned(user_id, transaction_id)),
         "Transaction",
     )
+    if existing.get("receipt_path"):
+        storage.delete(RECEIPT_BUCKET, [str(existing["receipt_path"])])
     return Response(status_code=204)
