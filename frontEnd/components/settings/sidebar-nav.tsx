@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const items = [
   {
@@ -34,23 +35,42 @@ const items = [
 
 export function SidebarNav() {
   const pathname = usePathname()
+  const router = useRouter()
+  const currentItem = items.find((item) => item.href === pathname) ?? items[0]
 
   return (
-    <nav className="flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1">
-      {items.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={cn(
-            buttonVariants({ variant: "ghost" }),
-            pathname === item.href ? "bg-muted hover:bg-muted" : "hover:bg-transparent hover:underline",
-            "justify-start",
-          )}
-        >
-          {item.title}
-        </Link>
-      ))}
-    </nav>
+    <>
+      <nav aria-label="Settings sections" className="lg:hidden">
+        <Select value={currentItem.href} onValueChange={(href) => router.push(href)}>
+          <SelectTrigger className="h-11 w-full bg-background">
+            <SelectValue aria-label={`Current section: ${currentItem.title}`} />
+          </SelectTrigger>
+          <SelectContent>
+            {items.map((item) => (
+              <SelectItem key={item.href} value={item.href}>
+                {item.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </nav>
+
+      <nav aria-label="Settings sections" className="hidden flex-col space-y-1 lg:flex">
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              pathname === item.href ? "bg-muted hover:bg-muted" : "hover:bg-transparent hover:underline",
+              "justify-start",
+            )}
+          >
+            {item.title}
+          </Link>
+        ))}
+      </nav>
+    </>
   )
 }
 

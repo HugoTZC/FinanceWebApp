@@ -95,21 +95,33 @@ export function DashboardPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="min-w-0 lg:col-span-4">
+              <Card className="group relative min-w-0 overflow-hidden transition-colors hover:border-primary/60 hover:bg-accent/20 lg:col-span-4">
+                <button
+                  type="button"
+                  aria-label="Open all transactions"
+                  className="absolute inset-0 z-10 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onClick={() => handleTabChange("transactions")}
+                />
                 <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
                   <CardTitle>Recent Transactions</CardTitle>
-                  <CardDescription>Your most recent transactions.</CardDescription>
+                  <CardDescription>Tap anywhere to view and manage all transactions.</CardDescription>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+                <CardContent inert aria-hidden="true" className="pointer-events-none px-4 pb-4 sm:px-6 sm:pb-6">
                   <RecentTransactions />
                 </CardContent>
               </Card>
-              <Card className="min-w-0 lg:col-span-3">
+              <Card className="group relative min-w-0 overflow-hidden transition-colors hover:border-primary/60 hover:bg-accent/20 lg:col-span-3">
+                <button
+                  type="button"
+                  aria-label="Open budget management"
+                  className="absolute inset-0 z-10 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onClick={() => handleTabChange("budget")}
+                />
                 <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
                   <CardTitle>Budget Progress</CardTitle>
-                  <CardDescription>Your budget progress for this month.</CardDescription>
+                  <CardDescription>Tap anywhere to open your monthly budget.</CardDescription>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+                <CardContent inert aria-hidden="true" className="pointer-events-none px-4 pb-4 sm:px-6 sm:pb-6">
                   <BudgetProgress />
                 </CardContent>
               </Card>
